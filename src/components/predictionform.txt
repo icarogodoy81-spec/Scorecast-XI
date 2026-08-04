@@ -1,0 +1,76 @@
+"use client";
+
+import Link from "next/link";
+
+type ProfileFormProps = {
+  profile?: {
+    full_name?: string | null;
+    username?: string | null;
+    avatar_url?: string | null;
+  } | null;
+  user?: {
+    email?: string | null;
+  } | null;
+};
+
+export default function ProfileForm(props: ProfileFormProps) {
+  const profile = props.profile ?? null;
+  const user = props.user ?? null;
+
+  const displayName =
+    profile?.full_name || profile?.username || user?.email || "Player";
+
+  return (
+    <section className="soft-card profile-card">
+      <div className="profile-summary">
+        <div className="profile-avatar">
+          {profile?.avatar_url ? (
+            <img src={profile.avatar_url} alt="Profile avatar" />
+          ) : (
+            <span>{displayName.charAt(0).toUpperCase()}</span>
+          )}
+        </div>
+
+        <div>
+          <h2>{displayName}</h2>
+          <p>{user?.email}</p>
+        </div>
+      </div>
+
+      <div className="profile-form">
+        <div className="form-group-soft">
+          <label>Email</label>
+          <input value={user?.email ?? ""} readOnly />
+        </div>
+
+        <div className="form-group-soft">
+          <label>Full name</label>
+          <input defaultValue={profile?.full_name ?? ""} placeholder="Full name" />
+        </div>
+
+        <div className="form-group-soft">
+          <label>Username</label>
+          <input defaultValue={profile?.username ?? ""} placeholder="Username" />
+        </div>
+
+        <div className="form-group-soft">
+          <label>Avatar URL</label>
+          <input
+            defaultValue={profile?.avatar_url ?? ""}
+            placeholder="https://example.com/avatar.png"
+          />
+        </div>
+
+        <div className="profile-actions">
+          <button type="button" disabled className="soft-button primary disabled">
+            Save profile
+          </button>
+
+          <Link href="/dashboard" className="soft-button secondary">
+            Back to dashboard
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}

@@ -1,0 +1,287 @@
+Scorepool Project Handover Highlights
+Current Project
+Project: Scorepool
+Stack:
+Next.js / React
+Running locally at http://localhost:3000/
+Supabase is being used/planned for backend/database
+Football data coming from football API
+API key already set up
+Local environment: Windows PowerShell
+What Has Been Built
+Fixtures Page
+A working fixtures/prediction page has been built for:
+
+txt
+
+
+Brasileirão Série A 2026
+Competition code: BSA
+Season: 2026
+The page currently fetches fixtures from:
+
+ts
+
+
+/api/fixtures?competition=BSA&season=2026
+It expects the API response to contain fixtures in one of these shapes:
+
+ts
+
+
+data.fixtures
+data.matches
+data.data
+data.response
+Current Frontend Features
+Fixture Display
+The page displays:
+
+Fixture date and kickoff time
+Home team
+Away team
+Team badges/logos
+Match status
+Final score if the match is locked and score exists
+Prediction inputs if the match is still open
+Fixture Grouping
+Fixtures are grouped by date using UK formatting:
+
+txt
+
+
+Monday, 20 July 2026
+Each group contains all fixtures for that date.
+
+Prediction Inputs
+Users can enter:
+
+txt
+
+
+Home score - Away score
+Input behaviour:
+
+Numeric only
+Maximum 2 digits
+Disabled once fixture is locked
+Save button disabled until both scores are entered
+Locking Logic
+A fixture is considered locked if:
+
+Kickoff time has passed, or
+Status is one of:
+txt
+
+
+FT
+FINISHED
+AET
+PEN
+LIVE
+IN_PLAY
+PAUSED
+1H
+2H
+HT
+Locked matches show either:
+
+Final score, if available
+Disabled prediction inputs
+Team Styling
+The page includes Brazilian club colour support for several clubs, including:
+
+Flamengo
+Palmeiras
+Corinthians
+São Paulo
+Santos
+Fluminense
+Vasco
+Botafogo
+Grêmio
+Internacional
+Cruzeiro
+Atlético Mineiro
+Bahia
+Fortaleza
+Ceará
+Sport
+Vitória
+Juventude
+Mirassol
+Red Bull Bragantino
+Cuiabá
+Goiás
+Coritiba
+Athletico Paranaense
+If a logo is missing or fails to load, the page falls back to initials/short name.
+
+Current Save Logic
+The save button currently does not persist to Supabase yet.
+
+It only logs the prediction:
+
+ts
+
+
+console.log('Prediction to save:', {
+  fixtureId,
+  homeTeam,
+  awayTeam,
+  homeScore,
+  awayScore,
+});
+Then it marks the prediction as saved locally in state.
+
+So prediction saving is currently frontend-only.
+
+Main File State
+The main page is a client component and currently includes:
+
+ts
+
+
+'use client';
+It uses:
+
+ts
+
+
+useEffect
+useMemo
+useState
+CSSProperties
+It imports:
+
+ts
+
+
+import './fixtures.css';
+The page contains helper functions for:
+
+Team name normalization
+Team metadata lookup
+Badge colour handling
+Logo fallback
+Fixture ID extraction
+Home/away team name extraction
+Logo extraction
+Kickoff extraction
+Status extraction
+Score extraction
+Date formatting
+Locking logic
+What Still Needs To Be Done Before Going Live
+1. Supabase Prediction Saving
+Need to replace the temporary console.log in savePrediction() with real Supabase insert/update logic.
+
+Required behaviour:
+
+Save prediction per user
+One prediction per user per fixture
+Update existing prediction if user changes it before kickoff
+Block saving after fixture is locked
+Likely table needed:
+
+txt
+
+
+predictions
+Fields likely needed:
+
+txt
+
+
+id
+user_id
+fixture_id
+competition
+season
+home_team
+away_team
+predicted_home_score
+predicted_away_score
+created_at
+updated_at
+2. User Authentication
+Need to confirm/build Supabase auth.
+
+Required:
+
+User login
+User session available on fixtures page
+Prediction tied to authenticated user_id
+Redirect or block unauthenticated users
+3. Load Existing Predictions
+When the fixtures page loads, it should also load the logged-in user's existing predictions from Supabase and pre-fill the inputs.
+
+Currently predictions start empty every page refresh.
+
+4. API Route Check
+Need to confirm the /api/fixtures route is stable and production-ready.
+
+Things to check:
+
+Football API key is stored in environment variables
+No API key exposed to frontend
+API supports competition=BSA&season=2026
+Response is normalized enough for the frontend
+Error handling works
+Rate limits are acceptable
+5. Database Policies
+Need Supabase RLS policies.
+
+Required policies:
+
+Users can insert their own predictions
+Users can update their own predictions before kickoff
+Users can read their own predictions
+Users cannot edit other users' predictions
+6. Scoring System
+Still needed:
+
+Calculate points after match finishes
+Define scoring rules
+Example rules to decide:
+
+txt
+
+
+Exact score = 3 points
+Correct result only = 1 point
+Wrong prediction = 0 points
+Need table or logic for scores/leaderboard.
+
+7. Leaderboard
+Need to build:
+
+Total points per user
+Ranking
+Possibly competition/season filter
+Possibly round/gameweek filter
+8. Production Environment
+Before going live:
+
+Set production environment variables
+Deploy to hosting platform
+Add Supabase production URL/key
+Add football API key
+Test /api/fixtures in production
+Test auth flow
+Test saving predictions
+Test locked fixture behaviour
+Immediate Next Task
+The next practical step is:
+
+txt
+
+
+Connect Save Prediction button to Supabase.
+Specifically update:
+
+ts
+
+
+async function savePrediction(fixture: Fixture)
+So it performs an authenticated upsert into the predictions table instead of only logging to console.

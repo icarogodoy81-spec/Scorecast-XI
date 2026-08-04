@@ -1,0 +1,24 @@
+use client;
+
+import { createClient } from @libsupabaseclient;
+import { useRouter } from nextnavigation;
+
+export default function SignOutButton() {
+  const router = useRouter();
+
+  const handleSignOut = async () = {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push(login);
+    router.refresh();
+  };
+
+  return (
+    button
+      onClick={handleSignOut}
+      className=px-4 py-2 bg-red-600 hoverbg-red-700 text-white rounded-lg transition-colors
+    
+      Sair
+    button
+  );
+}
