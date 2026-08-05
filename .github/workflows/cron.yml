@@ -1,0 +1,22 @@
+﻿name: Scoring and Fixture Sync Cron
+
+on:
+  schedule:
+    - cron: "0 */3 * * *"   # sync fixtures every 3 hours
+    - cron: "*/10 * * * *"  # run scoring every 10 minutes
+  workflow_dispatch: {}
+
+jobs:
+  sync-fixtures:
+    if: github.event.schedule == '0 */3 * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call sync-fixtures endpoint
+        run: curl -f "https://YOUR-VERCEL-URL.vercel.app/api/admin/sync-fixtures?competition=BSA&season=2026"
+
+  scoring:
+    if: github.event.schedule == '*/10 * * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call scoring endpoint
+        run: curl -f "https://YOUR-VERCEL-URL.vercel.app/api/scoring"
