@@ -206,3 +206,11 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+export async function GET(req: NextRequest) {
+  const url = new URL(req.url);
+  url.searchParams.set("competition", url.searchParams.get("competition") || "BSA");
+  url.searchParams.set("season", url.searchParams.get("season") || "2026");
+  const patchedReq = new NextRequest(url, req);
+  return POST(patchedReq);
+}
+

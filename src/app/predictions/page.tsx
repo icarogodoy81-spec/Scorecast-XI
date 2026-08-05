@@ -359,7 +359,15 @@ export default function PredictionsPage() {
           fixturesData ||
           [];
 
-        setFixtures(Array.isArray(items) ? items : []);
+        const upcomingOnly = Array.isArray(items)
+          ? items.filter((fixture) => {
+              const status = String(getStatus(fixture)).toUpperCase();
+              return !['FT', 'FINISHED', 'AET', 'PEN'].includes(status);
+            })
+          : [];
+
+        setFixtures(upcomingOnly);
+
 
         if (predictionsRes.ok) {
           const predictionsData = await predictionsRes.json();
