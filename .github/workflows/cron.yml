@@ -1,4 +1,4 @@
-﻿name: Scoring and Fixture Sync Cron
+name: Scoring and Fixture Sync Cron
 
 on:
   schedule:
@@ -12,11 +12,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Call sync-fixtures endpoint
-        run: curl -f "https://YOUR-VERCEL-URL.vercel.app/api/admin/sync-fixtures?competition=BSA&season=2026"
+        run: curl -f "https://scorecast-xi.vercel.app/api/admin/sync-fixtures?competition=BSA&season=2026"
 
   scoring:
     if: github.event.schedule == '*/10 * * * *' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Call scoring endpoint
-        run: curl -f "https://YOUR-VERCEL-URL.vercel.app/api/scoring"
+        run: curl -f "https://scorecast-xi.vercel.app/api/scoring"
