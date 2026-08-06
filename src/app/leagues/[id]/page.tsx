@@ -4,6 +4,13 @@ import LeagueStandings from "./LeagueStandings";
 
 export const dynamic = "force-dynamic";
 
+const THEME = {
+  darkBlue: "#0f172a",
+  mutedText: "#cbd5e1",
+  accent: "#93c5fd",
+  green: "#4ade80",
+};
+
 export default async function LeagueDetailPage({
   params,
 }: {
@@ -20,11 +27,15 @@ export default async function LeagueDetailPage({
     .eq("id", leagueId)
     .single();
 
-  // ...rest stays the same
-
-
   if (!league) {
-    return <div className="text-center py-12 text-gray-400">League not found.</div>;
+    return (
+      <div
+        style={{ background: THEME.darkBlue, minHeight: "100vh", color: THEME.mutedText }}
+        className="flex items-center justify-center"
+      >
+        League not found.
+      </div>
+    );
   }
 
   const { data: membership } = await supabase
@@ -36,16 +47,18 @@ export default async function LeagueDetailPage({
 
   if (!membership) {
     return (
-      <div className="text-center py-12">
-        <p className="text-gray-500 mb-4">You&apos;re not a member of this league.</p>
-        <Link href="/leagues" className="text-green-600 hover:underline">
+      <div
+        style={{ background: THEME.darkBlue, minHeight: "100vh", color: THEME.mutedText }}
+        className="flex flex-col items-center justify-center gap-4"
+      >
+        <p>You&apos;re not a member of this league.</p>
+        <Link href="/leagues" style={{ color: THEME.green }} className="hover:underline">
           Back to leagues
         </Link>
       </div>
     );
   }
 
-  // All members of this league
   const { data: members } = await supabase
     .from("league_members")
     .select("user_id, profiles(id, username)")
@@ -53,10 +66,16 @@ export default async function LeagueDetailPage({
 
   const userIds = (members || []).map((m: any) => m.user_id);
   if (userIds.length === 0) {
-    return <div className="text-center py-12 text-gray-400">No members yet.</div>;
+    return (
+      <div
+        style={{ background: THEME.darkBlue, minHeight: "100vh", color: THEME.mutedText }}
+        className="flex items-center justify-center"
+      >
+        No members yet.
+      </div>
+    );
   }
 
-  // All predictions for these users, joined with match info
   const { data: predictions } = await supabase
     .from("predictions")
     .select(
@@ -115,8 +134,9 @@ export default async function LeagueDetailPage({
           outcome,
         };
       })
-      .sort((a: any, b: any) =>
-        new Date(b.matchDate).getTime() - new Date(a.matchDate).getTime()
+      .sort(
+        (a: any, b: any) =>
+          new Date(b.matchDate).getTime() - new Date(a.matchDate).getTime()
       );
 
     return {
@@ -133,15 +153,20 @@ export default async function LeagueDetailPage({
   standings.sort((a, b) => b.points - a.points);
 
   return (
-    <div className="max-w-4xl mx-auto py-8 px-4">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">{league.name}</h1>
-        <p className="text-gray-500 text-sm mt-1">
-          Invite code: <span className="font-mono font-bold">{league.invite_code}</span>
-        </p>
-      </div>
+    <div style={{ background: THEME.darkBlue, minHeight: "100vh", color: "#f8fafc" }} className="px-4 py-8 md:px-8">
+      <div className="max-w-4xl mx-auto">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold">{league.name}</h1>
+          <p style={{ color: THEME.mutedText }} className="text-sm mt-1">
+            Invite code:{" "}
+            <span className="font-mono font-bold" style={{ color: THEME.accent }}>
+              {league.invite_code}
+            </span>
+          </p>
+        </div>
 
-      <LeagueStandings standings={standings} currentUserId={user.id} />
+        <LeagueStandings standings={standings} currentUserId={user.id} />
+      </div>
     </div>
   );
 }
