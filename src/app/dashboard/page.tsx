@@ -25,10 +25,13 @@ const NAV_LINKS = [
   { href: '/how-it-works', label: 'How to Play' },
 ];
 
+type LeagueInfo = { id: string; name: string };
+
 export default function Dashboard() {
   const router = useRouter();
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
+  const [leagues, setLeagues] = useState<LeagueInfo[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -39,6 +42,19 @@ export default function Dashboard() {
         return;
       }
       setUser(session.user);
+
+      const { data: memberships } = await supabase
+        .from("league_members")
+        .select("league_id, leagues(id, name)")
+        .eq("user_id", session.user.id);
+
+      if (memberships) {
+        const leagueList = memberships
+          .map((row: any) => row.leagues)
+          .filter(Boolean) as LeagueInfo[];
+        setLeagues(leagueList);
+      }
+
       setLoading(false);
     };
     getUser();
@@ -63,7 +79,6 @@ export default function Dashboard() {
       className="flex items-center justify-center px-4 py-8 md:px-8"
     >
       <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16 w-full max-w-5xl">
-        {/* Logo: big on top for mobile, left side for desktop */}
         <div className="flex-1 flex justify-center w-full">
           <Image
             src="/images/logo.png"
@@ -76,7 +91,6 @@ export default function Dashboard() {
           />
         </div>
 
-        {/* Card with nav buttons */}
         <div
           style={{
             background: THEME.darkBlue2,
@@ -102,6 +116,30 @@ export default function Dashboard() {
               {link.label}
             </Link>
           ))}
+
+          {leagues.length > 0 && (
+            <div className="mt-2 pt-3 border-t" style={{ borderColor: THEME.border }}>
+              <span style={{ color: THEME.mutedText }} className="text-xs uppercase tracking-wide block mb-2">
+                Your Leagues
+              </span>
+              <div className="flex flex-col gap-2">
+                {leagues.map((league) => (
+                  <Link
+                    key={league.id}
+                    href={`/leagues/${league.id}`}
+                    style={{
+                      background: 'rgba(30,64,175,0.2)',
+                      border: `1px solid ${THEME.border}`,
+                      color: THEME.text,
+                    }}
+                    className="block w-full px-4 py-2 rounded-lg text-sm text-center hover:border-blue-400 transition"
+                  >
+                    {league.name}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
 
           <button
             onClick={handleSignOut}
