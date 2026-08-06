@@ -15,24 +15,46 @@ const supabaseAdmin = createClient(
   }
 );
 
-async function getLeaderboardRows() {
+async function getLeaderboardRows(leagueId?: string) {
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     throw new Error("SUPABASE_SERVICE_ROLE_KEY is missing in .env.local");
   }
 
-  const profilesResponse = await supabaseAdmin
-    .from("profiles")
-    .select("id, username");
+  let memberIds: string[] = [];
+  let members: any[] = [];
 
-  if (profilesResponse.error) {
-    throw new Error(profilesResponse.error.message);
+  if (leagueId) {
+    const membersResponse = await supabaseAdmin
+      .from("league_members")
+      .select("user_id, profiles(id, username)")
+      .eq("league_id", leagueId);
+
+    if (membersResponse.error) {
+      throw new Error(membersResponse.error.message);
+    }
+
+    members = membersResponse.data ?? [];
+    memberIds = members.map((m) => m.user_id);
+  } else {
+    const profilesResponse = await supabaseAdmin
+      .from("profiles")
+      .select("id, username");
+
+    if (profilesResponse.error) {
+      throw new Error(profilesResponse.error.message);
+    }
+
+    members = (profilesResponse.data ?? []).map((p) => ({
+      user_id: p.id,
+      profiles: p,
+    }));
+    memberIds = members.map((m) => m.user_id);
   }
-
-  const profiles = profilesResponse.data ?? [];
 
   const predictionsResponse = await supabaseAdmin
     .from("predictions")
-    .select("user_id, points");
+    .select("user_id, points")
+    .in("user_id", memberIds.length > 0 ? memberIds : ["__none__"]);
 
   if (predictionsResponse.error) {
     throw new Error(predictionsResponse.error.message);
@@ -42,10 +64,11 @@ async function getLeaderboardRows() {
 
   const leaderboardByUser = new Map();
 
-  for (const profile of profiles) {
-    leaderboardByUser.set(profile.id, {
-      userId: profile.id,
-      username: profile.username ?? profile.id,
+  for (const member of members) {
+    const profile = (member as any).profiles;
+    leaderboardByUser.set(member.user_id, {
+      userId: member.user_id,
+      username: profile?.username ?? member.user_id,
       points: 0,
       exactScores: 0,
       goalDifference: 0,
@@ -54,24 +77,10 @@ async function getLeaderboardRows() {
   }
 
   for (const prediction of predictions) {
-    const userId = prediction.user_id;
+    const row = leaderboardByUser.get(prediction.user_id);
+    if (!row) continue;
     const points = Number(prediction.points) || 0;
-
-    if (!leaderboardByUser.has(userId)) {
-      leaderboardByUser.set(userId, {
-        userId,
-        username: userId,
-        points: 0,
-        exactScores: 0,
-        goalDifference: 0,
-        correctResults: 0,
-      });
-    }
-
-    const row = leaderboardByUser.get(userId);
-
     row.points += points;
-
     if (points === 4) row.exactScores += 1;
     else if (points === 3) row.goalDifference += 1;
     else if (points === 2) row.correctResults += 1;
@@ -81,16 +90,12 @@ async function getLeaderboardRows() {
     .sort((a, b) => {
       if (b.points !== a.points) return b.points - a.points;
       if (b.exactScores !== a.exactScores) return b.exactScores - a.exactScores;
-      if (b.goalDifference !== a.goalDifference) {
-        return b.goalDifference - a.goalDifference;
-      }
+      if (b.goalDifference !== a.goalDifference) return b.goalDifference - a.goalDifference;
       return b.correctResults - a.correctResults;
     })
-    .map((row, index) => ({
-      ...row,
-      rank: index + 1,
-    }));
+    .map((row, index) => ({ ...row, rank: index + 1 }));
 }
+
 
 export default async function LeaderboardPage() {
   let rows: any[] = [];
