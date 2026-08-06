@@ -36,7 +36,7 @@ export default function LeagueStandings({
 
   return (
     <>
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden text-gray-900">
         <div className="px-4 py-3 border-b border-gray-100">
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
             Standings ({standings.length} players)
@@ -88,7 +88,7 @@ export default function LeagueStandings({
           onClick={() => setSelected(null)}
         >
           <div
-            className="bg-white rounded-xl max-w-md w-full max-h-[80vh] overflow-y-auto"
+            className="bg-white rounded-xl max-w-md w-full max-h-[80vh] overflow-y-auto text-gray-900"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
