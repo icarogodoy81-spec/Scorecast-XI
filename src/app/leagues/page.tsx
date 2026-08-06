@@ -183,12 +183,16 @@ export default function LeaguesPage() {
                 <p>No leagues yet.</p>
               ) : (
                 <ul>
-                  {myLeagues.map((l) => (
-                    <li key={l.id} style={{ marginBottom: 10 }}>
-                      <strong>{l.name}</strong> — code: <code>{l.invite_code}</code>
-                    </li>
-                  ))}
-                </ul>
+                  <ul>
+  {myLeagues.map((l) => (
+    <li key={l.id} style={{ marginBottom: 10 }}>
+      <Link href={`/leagues/${l.id}`} style={{ color: "#93c5fd" }}>
+        <strong>{l.name}</strong> — code: <code>{l.invite_code}</code>
+      </Link>
+    </li>
+  ))}
+</ul>
+
               )}
             </section>
           </>
