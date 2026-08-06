@@ -7,9 +7,9 @@ export const dynamic = "force-dynamic";
 export default async function LeagueDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  const leagueId = params.id;
+  const { id: leagueId } = await params;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
@@ -19,6 +19,9 @@ export default async function LeagueDetailPage({
     .select("*")
     .eq("id", leagueId)
     .single();
+
+  // ...rest stays the same
+
 
   if (!league) {
     return <div className="text-center py-12 text-gray-400">League not found.</div>;
