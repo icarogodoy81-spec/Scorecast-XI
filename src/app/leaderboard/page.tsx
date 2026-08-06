@@ -1,7 +1,26 @@
+import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-export default function LeaderboardPage() {
+export default async function LeaderboardPage() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const { data: membership } = await supabase
+    .from("league_members")
+    .select("league_id")
+    .eq("user_id", user!.id)
+    .limit(1)
+    .maybeSingle();
+
+  if (membership?.league_id) {
+    redirect(`/leagues/${membership.league_id}`);
+  }
+
   redirect("/leagues");
 }
