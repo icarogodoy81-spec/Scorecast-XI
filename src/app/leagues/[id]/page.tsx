@@ -3,7 +3,7 @@ import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
-async function getLeagueStandings(supabase: any, leagueId: number) {
+async function getLeagueStandings(supabase: any, leagueId: string) {
   // Get all members with their user info
   const { data: members } = await supabase
     .from("league_members")
@@ -42,7 +42,7 @@ export default async function LeagueDetailPage({
 }: {
   params: { id: string };
 }) {
-  const leagueId = Number(params.id);
+  const leagueId = params.id;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
