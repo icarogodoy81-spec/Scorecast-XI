@@ -14,10 +14,10 @@ async function getLeagueStandings(supabase: any, leagueId: number) {
 
   const userIds = members.map((m: any) => m.user_id);
 
-  // Get all predictions for these users
+  // Get scored predictions for these users (points already calculated on match finish)
   const { data: predictions } = await supabase
     .from("predictions")
-    .select("user_id, home_score, away_score, matches!inner(id, status, home_score, away_score)")
+    .select("user_id, points")
     .in("user_id", userIds);
 
   // Calculate points per user
@@ -25,16 +25,7 @@ async function getLeagueStandings(supabase: any, leagueId: number) {
   userIds.forEach((id: string) => (points[id] = 0));
 
   predictions?.forEach((p: any) => {
-    if (p.matches.status !== "finished" || p.matches.home_score === null) return;
-
-    const exact = p.home_score === p.matches.home_score && p.away_score === p.matches.away_score;
-    const correctResult =
-      (p.home_score > p.away_score && p.matches.home_score > p.matches.away_score) ||
-      (p.home_score < p.away_score && p.matches.home_score < p.matches.away_score) ||
-      (p.home_score === p.away_score && p.matches.home_score === p.matches.away_score);
-
-    if (exact) points[p.user_id] += 5;
-    else if (correctResult) points[p.user_id] += 2;
+    points[p.user_id] += Number(p.points) || 0;
   });
 
   return members
@@ -43,7 +34,7 @@ async function getLeagueStandings(supabase: any, leagueId: number) {
       username: m.users?.username || "Unknown",
       points: points[m.user_id] || 0,
     }))
-  .sort((a: { points: number }, b: { points: number }) => b.points - a.points);
+    .sort((a: { points: number }, b: { points: number }) => b.points - a.points);
 }
 
 export default async function LeagueDetailPage({
