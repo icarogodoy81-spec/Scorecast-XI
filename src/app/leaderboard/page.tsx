@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -11,16 +12,37 @@ export default async function LeaderboardPage() {
     redirect("/login");
   }
 
-  const { data: membership } = await supabase
+  const { data: memberships } = await supabase
     .from("league_members")
-    .select("league_id")
-    .eq("user_id", user!.id)
-    .limit(1)
-    .maybeSingle();
+    .select("league_id, leagues(id, name)")
+    .eq("user_id", user!.id);
 
-  if (membership?.league_id) {
-    redirect(`/leagues/${membership.league_id}`);
+  const leagues = (memberships || [])
+    .map((m: any) => m.leagues)
+    .filter(Boolean);
+
+  if (leagues.length === 0) {
+    redirect("/leagues");
   }
 
-  redirect("/leagues");
+  if (leagues.length === 1) {
+    redirect(`/leagues/${leagues[0].id}`);
+  }
+
+  return (
+    <div className="max-w-md mx-auto py-12 px-4">
+      <h1 className="text-xl font-bold mb-6">Choose a league</h1>
+      <div className="flex flex-col gap-3">
+        {leagues.map((league: any) => (
+          <Link
+            key={league.id}
+            href={`/leagues/${league.id}`}
+            className="block px-4 py-3 rounded-xl border border-gray-200 hover:border-green-500 transition text-center font-medium"
+          >
+            {league.name}
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
 }

@@ -1,41 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
+import LeagueStandings from "./LeagueStandings";
 
 export const dynamic = "force-dynamic";
-
-async function getLeagueStandings(supabase: any, leagueId: string) {
-  // Get all members with their user info
-  const { data: members } = await supabase
-    .from("league_members")
-    .select("user_id, users:profiles(id, username)")
-    .eq("league_id", leagueId);
-
-  if (!members || members.length === 0) return [];
-
-  const userIds = members.map((m: any) => m.user_id);
-
-  // Get scored predictions for these users (points already calculated on match finish)
-  const { data: predictions } = await supabase
-    .from("predictions")
-    .select("user_id, points")
-    .in("user_id", userIds);
-
-  // Calculate points per user
-  const points: Record<string, number> = {};
-  userIds.forEach((id: string) => (points[id] = 0));
-
-  predictions?.forEach((p: any) => {
-    points[p.user_id] += Number(p.points) || 0;
-  });
-
-  return members
-    .map((m: any) => ({
-      userId: m.user_id,
-      username: m.users?.username || "Unknown",
-      points: points[m.user_id] || 0,
-    }))
-    .sort((a: { points: number }, b: { points: number }) => b.points - a.points);
-}
 
 export default async function LeagueDetailPage({
   params,
@@ -57,7 +24,6 @@ export default async function LeagueDetailPage({
     return <div className="text-center py-12 text-gray-400">League not found.</div>;
   }
 
-  // Check membership
   const { data: membership } = await supabase
     .from("league_members")
     .select("user_id")
@@ -76,10 +42,95 @@ export default async function LeagueDetailPage({
     );
   }
 
-  const standings = await getLeagueStandings(supabase, leagueId);
+  // All members of this league
+  const { data: members } = await supabase
+    .from("league_members")
+    .select("user_id, profiles(id, username)")
+    .eq("league_id", leagueId);
+
+  const userIds = (members || []).map((m: any) => m.user_id);
+  if (userIds.length === 0) {
+    return <div className="text-center py-12 text-gray-400">No members yet.</div>;
+  }
+
+  // All predictions for these users, joined with match info
+  const { data: predictions } = await supabase
+    .from("predictions")
+    .select(
+      "id, user_id, home_score, away_score, actual_home_score, actual_away_score, points, match_status, match_id, matches(home_team, away_team, match_date)"
+    )
+    .in("user_id", userIds);
+
+  const standings = (members || []).map((m: any) => {
+    const username = m.profiles?.username || "Unknown";
+    const userPreds = (predictions || []).filter((p: any) => p.user_id === m.user_id);
+
+    let points = 0;
+    let exactScores = 0;
+    let goalDiff = 0;
+    let correctResult = 0;
+
+    const detailedPredictions = userPreds
+      .filter((p: any) => p.match_status === "FINISHED")
+      .map((p: any) => {
+        points += Number(p.points) || 0;
+
+        const predH = p.home_score;
+        const predA = p.away_score;
+        const actH = p.actual_home_score;
+        const actA = p.actual_away_score;
+
+        let outcome = "";
+
+        if (predH === actH && predA === actA) {
+          exactScores++;
+          outcome = "Exact Score";
+        } else if (predH - predA === actH - actA) {
+          goalDiff++;
+          outcome = "Correct Goal Difference";
+        } else {
+          const predResult = predH > predA ? "H" : predH < predA ? "A" : "D";
+          const actResult = actH > actA ? "H" : actH < actA ? "A" : "D";
+          if (predResult === actResult) {
+            correctResult++;
+            outcome = "Correct Result";
+          } else {
+            outcome = "Incorrect";
+          }
+        }
+
+        return {
+          matchId: p.match_id,
+          homeTeam: p.matches?.home_team || "?",
+          awayTeam: p.matches?.away_team || "?",
+          matchDate: p.matches?.match_date,
+          predictedHome: predH,
+          predictedAway: predA,
+          actualHome: actH,
+          actualAway: actA,
+          points: Number(p.points) || 0,
+          outcome,
+        };
+      })
+      .sort((a: any, b: any) =>
+        new Date(b.matchDate).getTime() - new Date(a.matchDate).getTime()
+      );
+
+    return {
+      userId: m.user_id,
+      username,
+      points,
+      exactScores,
+      goalDiff,
+      correctResult,
+      predictions: detailedPredictions,
+    };
+  });
+
+  standings.sort((a, b) => b.points - a.points);
 
   return (
-    <div>
+    <div className="max-w-4xl mx-auto py-8 px-4">
       <div className="mb-6">
         <h1 className="text-2xl font-bold">{league.name}</h1>
         <p className="text-gray-500 text-sm mt-1">
@@ -87,36 +138,7 @@ export default async function LeagueDetailPage({
         </p>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-        <div className="px-4 py-3 border-b border-gray-100">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
-            Standings ({standings.length} players)
-          </h2>
-        </div>
-        <div className="divide-y divide-gray-100">
-         {standings.map((s: { userId: string; username: string; points: number }, i: number) => (
-            <div
-              key={s.userId}
-              className="px-4 py-3 flex items-center justify-between"
-            >
-              <div className="flex items-center gap-3">
-                <span className={`text-sm font-bold w-6 text-center ${
-                  i === 0 ? "text-yellow-500" : i === 1 ? "text-gray-400" : i === 2 ? "text-amber-600" : "text-gray-300"
-                }`}>
-                  {i + 1}
-                </span>
-                <span className={`text-sm ${s.userId === user.id ? "font-bold" : "font-medium"}`}>
-                  {s.username}
-                  {s.userId === user.id && (
-                    <span className="text-xs text-green-600 ml-1">(you)</span>
-                  )}
-                </span>
-              </div>
-              <span className="text-sm font-bold text-gray-700">{s.points} pts</span>
-            </div>
-          ))}
-        </div>
-      </div>
+      <LeagueStandings standings={standings} currentUserId={user.id} />
     </div>
   );
 }
