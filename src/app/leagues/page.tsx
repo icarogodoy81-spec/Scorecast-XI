@@ -149,18 +149,22 @@ export default function LeaguesPage() {
           <p>Loading...</p>
         ) : (
           <>
-            <section style={{ marginTop: 30 }}>
-              <h2>Create a league</h2>
-              <input
-                value={newLeagueName}
-                onChange={(e) => setNewLeagueName(e.target.value)}
-                placeholder="League name"
-                style={inputStyle}
-              />
-              <button onClick={handleCreate} style={buttonStyle}>
-                Create
-              </button>
-            </section>
+           <section style={{ marginTop: 30 }}>
+  <h2>My leagues</h2>
+  {myLeagues.length === 0 ? (
+    <p>No leagues yet.</p>
+  ) : (
+    <ul>
+      {myLeagues.map((l) => (
+        <li key={l.id} style={{ marginBottom: 10 }}>
+          <Link href={`/leagues/${l.id}`} style={{ color: "#93c5fd" }}>
+            <strong>{l.name}</strong> — code: <code>{l.invite_code}</code>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  )}
+</section>
 
             <section style={{ marginTop: 30 }}>
               <h2>Join a league</h2>
