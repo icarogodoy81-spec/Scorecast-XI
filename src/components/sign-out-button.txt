@@ -1,24 +1,30 @@
-use client;
+// src/components/site-header.tsx
+'use client';
 
-import { createClient } from @libsupabaseclient;
-import { useRouter } from nextnavigation;
+import Link from 'next/link';
+import Image from 'next/image';
+import SignOutButton from './sign-out-button';
 
-export default function SignOutButton() {
-  const router = useRouter();
-
-  const handleSignOut = async () = {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push(login);
-    router.refresh();
-  };
-
+export default function SiteHeader() {
   return (
-    button
-      onClick={handleSignOut}
-      className=px-4 py-2 bg-red-600 hoverbg-red-700 text-white rounded-lg transition-colors
-    
-      Sair
-    button
+    <header className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
+      <Link href="/dashboard">
+        <Image src="/logo.png" alt="Bolão" width={443} height={319} />
+      </Link>
+
+      <nav className="flex items-center gap-6">
+        <Link href="/dashboard" className="text-gray-300 hover:text-white transition-colors">
+          Dashboard
+        </Link>
+        <Link href="/leagues" className="text-gray-300 hover:text-white transition-colors">
+          Leagues
+        </Link>
+        <Link href="/leaderboard" className="text-gray-300 hover:text-white transition-colors">
+          Leaderboard
+        </Link>
+      </nav>
+
+      <SignOutButton />
+    </header>
   );
 }

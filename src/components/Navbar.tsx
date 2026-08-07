@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/app/actions/auth";
 
@@ -8,9 +9,9 @@ export default async function Navbar() {
 
   return (
     <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
-      <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-        <Link href="/" className="font-bold text-lg text-green-600">
-          ⚽ Footy Predictions
+      <div className="max-w-5xl mx-auto px-4 flex items-center justify-between">
+        <Link href="/" className="flex items-center">
+          <Image src="/logo.png" alt="Bolão" width={443} height={319} priority />
         </Link>
 
         {user ? (
