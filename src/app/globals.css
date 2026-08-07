@@ -121,6 +121,20 @@ main > a:hover,
   background: #334155;
 }
 
+/* Logo link inside nav should not be boxed like nav buttons */
+nav a.logo-link {
+  display: inline-flex;
+  min-width: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+}
+
+nav a.logo-link:hover {
+  background: transparent;
+}
+
 /* Account / competition info cards */
 .dashboard-grid,
 .stats-grid,

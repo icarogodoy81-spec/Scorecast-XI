@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import LeagueStandings from "./LeagueStandings";
+import Navbar from "@/components/Navbar";
 
 export const dynamic = "force-dynamic";
 
@@ -29,12 +30,15 @@ export default async function LeagueDetailPage({
 
   if (!league) {
     return (
-      <div
-        style={{ background: THEME.darkBlue, minHeight: "100vh", color: THEME.mutedText }}
-        className="flex items-center justify-center"
-      >
-        League not found.
-      </div>
+      <>
+        <Navbar />
+        <div
+          style={{ background: THEME.darkBlue, minHeight: "100vh", color: THEME.mutedText }}
+          className="flex items-center justify-center"
+        >
+          League not found.
+        </div>
+      </>
     );
   }
 
@@ -47,15 +51,18 @@ export default async function LeagueDetailPage({
 
   if (!membership) {
     return (
-      <div
-        style={{ background: THEME.darkBlue, minHeight: "100vh", color: THEME.mutedText }}
-        className="flex flex-col items-center justify-center gap-4"
-      >
-        <p>You&apos;re not a member of this league.</p>
-        <Link href="/leagues" style={{ color: THEME.green }} className="hover:underline">
-          Back to leagues
-        </Link>
-      </div>
+      <>
+        <Navbar />
+        <div
+          style={{ background: THEME.darkBlue, minHeight: "100vh", color: THEME.mutedText }}
+          className="flex flex-col items-center justify-center gap-4"
+        >
+          <p>You&apos;re not a member of this league.</p>
+          <Link href="/leagues" style={{ color: THEME.green }} className="hover:underline">
+            Back to leagues
+          </Link>
+        </div>
+      </>
     );
   }
 
@@ -67,12 +74,15 @@ export default async function LeagueDetailPage({
   const userIds = (members || []).map((m: any) => m.user_id);
   if (userIds.length === 0) {
     return (
-      <div
-        style={{ background: THEME.darkBlue, minHeight: "100vh", color: THEME.mutedText }}
-        className="flex items-center justify-center"
-      >
-        No members yet.
-      </div>
+      <>
+        <Navbar />
+        <div
+          style={{ background: THEME.darkBlue, minHeight: "100vh", color: THEME.mutedText }}
+          className="flex items-center justify-center"
+        >
+          No members yet.
+        </div>
+      </>
     );
   }
 
@@ -153,20 +163,23 @@ export default async function LeagueDetailPage({
   standings.sort((a, b) => b.points - a.points);
 
   return (
-    <div style={{ background: THEME.darkBlue, minHeight: "100vh", color: "#f8fafc" }} className="px-4 py-8 md:px-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold">{league.name}</h1>
-          <p style={{ color: THEME.mutedText }} className="text-sm mt-1">
-            Invite code:{" "}
-            <span className="font-mono font-bold" style={{ color: THEME.accent }}>
-              {league.invite_code}
-            </span>
-          </p>
-        </div>
+    <>
+      <Navbar />
+      <div style={{ background: THEME.darkBlue, minHeight: "100vh", color: "#f8fafc" }} className="px-4 py-8 md:px-8">
+        <div className="max-w-4xl mx-auto">
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold">{league.name}</h1>
+            <p style={{ color: THEME.mutedText }} className="text-sm mt-1">
+              Invite code:{" "}
+              <span className="font-mono font-bold" style={{ color: THEME.accent }}>
+                {league.invite_code}
+              </span>
+            </p>
+          </div>
 
-        <LeagueStandings standings={standings} currentUserId={user.id} />
+          <LeagueStandings standings={standings} currentUserId={user.id} />
+        </div>
       </div>
-    </div>
+    </>
   );
 }
