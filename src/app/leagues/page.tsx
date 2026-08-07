@@ -140,10 +140,10 @@ export default function LeaguesPage() {
   return (
     <main style={{ minHeight: "100vh", background: "#0f172a", color: "#fff", padding: 40 }}>
       <div style={{ maxWidth: 600, margin: "0 auto" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-          <Image src="/images/logo.png" alt="Scorecast XI" width={40} height={40} />
-          <span style={{ fontWeight: 700, fontSize: 20 }}>Scorecast XI</span>
-        </div>
+<div style={{ display: "flex", alignItems: "center", marginBottom: 20 }}>
+  <Image src="/images/logo.png" alt="Scorecast XI" width={443} height={319} />
+</div>
+
 
         <Link href="/dashboard" style={{ color: "#93c5fd" }}>
           &larr; Back to dashboard
