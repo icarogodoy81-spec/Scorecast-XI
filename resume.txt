@@ -1,0 +1,62 @@
+SCOREPOOL — PROJECT MEMORY NOTES
+Stack
+Next.js (App Router), TypeScript
+Supabase (Postgres + Auth) — using @supabase/supabase-js (service role for server routes) and @/lib/supabase/server (session-based client for user auth routes)
+Football data from API-Football (api-sports.io), key in FOOTBALL_API_KEY env var
+Local dev: http://localhost:3000/, Windows PowerShell
+Project path: C:\Users\igvan\bolao
+Env vars (server-side)
+NEXT_PUBLIC_SUPABASE_URL
+SUPABASE_SERVICE_ROLE_KEY
+FOOTBALL_API_KEY
+Key Routes (src/app/api/)
+api/fixtures/route.ts
+GET — reads fixtures FROM Supabase (not from football API) for frontend display.
+Uses service role client.
+Optional filter param: league_id (NOT competition/league_name — those don't exist as columns).
+Selects: id, home_team_name, away_team_name, home_team_logo, away_team_logo, fixture_date, status_short, round, home_goals, away_goals, league_id
+Maps to { matches: [...] } shape consumed by frontend (home_team, away_team, utcDate, status, group_name, score.fullTime.home/away).
+Called from: src/app/boloes/page.tsx and src/app/predictions/page.tsx (no query params currently sent).
+api/[something]/route.ts (the league/season sync route — separate from above)
+GET — pulls fixtures FROM API-Football LIVE, then upserts INTO Supabase fixtures table.
+Required query params: league (league id), season.
+Calls https://v3.football.api-sports.io/fixtures with header x-apisports-key.
+Maps API response → row shape matching fixtures table columns (id, league_id, season, round, home_team_id/name/logo, away_team_id/name/logo, date, status, home_score, away_score, updated_at).
+Upserts with onConflict: 'id'.
+NOTE: need to confirm exact file path/folder name for this route (wasn't fully given — need to re-locate, likely something like api/sync-fixtures/route.ts or similar).
+api/predictions/route.ts
+GET — requires logged-in user (supabase.auth.getUser()), returns user's predictions from predictions table: match_id, home_score, away_score filtered by user_id.
+POST — upserts a prediction: body { matchId | fixtureId, homeScore, awayScore }. Upsert key: user_id,match_id on table predictions. Requires logged-in user.
+Supabase Tables
+fixtures
+Full column list (confirmed from live data):
+
+
+
+id, league_id, season, round, home_team_id, home_team_name, home_team_logo,
+away_team_id, away_team_name, away_team_logo, date, status, home_score, away_score,
+created_at, updated_at, fixture_date, timezone, status_short, status_long, elapsed,
+home_goals, away_goals, venue_name, venue_city, raw, fixture_id, api_fixture_id,
+home_team, away_team, kickoff_time, league_logo, league_flag,
+extratime_home_score, extratime_away_score, penalty_home_score, penalty_away_score,
+home_logo, away_logo, competition_code
+No league_name column exists — this was the bug cause. Use league_id for filtering.
+competition_code exists but is empty/unused in current data.
+Sample league in use: league_id = 2013 = Brasileirão Série A, season = 2026.
+Redundant/legacy-looking duplicate columns exist (e.g. home_team_name vs home_team, date vs fixture_date, home_score vs home_goals) — likely from schema evolution/migration overlap. Current API-fixtures route reads home_goals/away_goals/fixture_date/status_short, sync route writes home_score/away_score/date/status. Potential inconsistency risk — check which fields are actually populated/used consistently before building new features.
+predictions
+Columns confirmed in use: user_id, match_id, home_score, away_score, updated_at
+
+Unique constraint: (user_id, match_id)
+match_id corresponds to fixtures.id (aka fixture_id/api_fixture_id — need to verify which one is canonical join key).
+Frontend Pages
+src/app/boloes/page.tsx — fetches /api/fixtures
+src/app/predictions/page.tsx — fetches /api/fixtures and presumably /api/predictions (line ~345 area for fixtures fetch)
+Open items / things to verify next session
+Exact file path of the API-Football sync route (league/season → upsert). Confirm folder name.
+Reconcile duplicate columns in fixtures table (home_score vs home_goals, date vs fixture_date, status vs status_short) — decide canonical set.
+Confirm which fixture ID field predictions should join on (fixtures.id vs fixture_id vs api_fixture_id).
+Check if competition_code is meant to be populated during sync (currently blank) — if leagues need per-competition filtering on frontend, this needs wiring.
+Git workflow: user commits/pushes manually via PowerShell — I provide commands, don't execute them.
+
+

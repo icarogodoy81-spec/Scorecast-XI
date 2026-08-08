@@ -88,30 +88,24 @@ function calculatePoints(
 
 function isAuthorized(request: Request) {
   const url = new URL(request.url);
+  const isLocalhost = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+  if (isLocalhost) return true;
 
-  const isLocalhost =
-    url.hostname === 'localhost' || url.hostname === '127.0.0.1';
-
-  // Allow local testing without the secret.
-  if (isLocalhost) {
+  const authHeader = request.headers.get('authorization');
+  if (process.env.CRON_SECRET && authHeader === `Bearer ${process.env.CRON_SECRET}`) {
     return true;
   }
 
-  if (!SCORING_SECRET) {
-    return false;
-  }
+  if (!SCORING_SECRET) return false;
 
   const scoringSecretHeader = request.headers.get('x-scoring-secret');
-  const authorizationHeader = request.headers.get('authorization');
-
-  const bearerToken = authorizationHeader?.startsWith('Bearer ')
-    ? authorizationHeader.replace('Bearer ', '').trim()
+  const bearerToken = authHeader?.startsWith('Bearer ')
+    ? authHeader.replace('Bearer ', '').trim()
     : null;
 
-  return (
-    scoringSecretHeader === SCORING_SECRET ||
-    bearerToken === SCORING_SECRET
-  );
+  return scoringSecretHeader === SCORING_SECRET || bearerToken === SCORING_SECRET;
+}
+
 }
 
 export async function POST(request: Request) {

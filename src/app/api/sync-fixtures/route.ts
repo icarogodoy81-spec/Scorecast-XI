@@ -70,7 +70,7 @@ export async function POST(request: Request) {
     const { data: finishedFixtures, error: fixturesError } = await supabase
       .from('fixtures')
       .select('id, home_goals, away_goals, status_short')
-      .eq('status_short', 'FT')
+      .eq('status_short', 'FINISHED')
       .not('home_goals', 'is', null)
       .not('away_goals', 'is', null);
 
