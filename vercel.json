@@ -1,0 +1,12 @@
+﻿{
+  "crons": [
+    {
+      "path": "/api/sync-fixtures",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/scoring",
+      "schedule": "*/20 * * * *"
+    }
+  ]
+}
