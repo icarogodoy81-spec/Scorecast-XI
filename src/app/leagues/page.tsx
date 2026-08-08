@@ -11,7 +11,23 @@ type League = {
   name: string;
   invite_code: string;
   owner_id: string;
+  competition_code: string;
 };
+
+const COMPETITIONS = [
+  { code: "WC", name: "FIFA World Cup" },
+  { code: "CL", name: "UEFA Champions League" },
+  { code: "BL1", name: "Bundesliga" },
+  { code: "DED", name: "Eredivisie" },
+  { code: "BSA", name: "Campeonato Brasileiro Série A" },
+  { code: "PD", name: "Primera Division" },
+  { code: "FL1", name: "Ligue 1" },
+  { code: "ELC", name: "Championship" },
+  { code: "PPL", name: "Primeira Liga" },
+  { code: "EC", name: "European Championship" },
+  { code: "SA", name: "Serie A" },
+  { code: "PL", name: "Premier League" },
+];
 
 export default function LeaguesPage() {
   const supabase = createClient();
@@ -20,6 +36,7 @@ export default function LeaguesPage() {
   const [myLeagues, setMyLeagues] = useState<League[]>([]);
   const [loading, setLoading] = useState(true);
   const [newLeagueName, setNewLeagueName] = useState("");
+  const [newLeagueCompetition, setNewLeagueCompetition] = useState("BSA");
   const [joinCode, setJoinCode] = useState("");
   const [message, setMessage] = useState("");
 
@@ -44,7 +61,7 @@ export default function LeaguesPage() {
       if (leagueIds.length > 0) {
         const { data: leagues } = await supabase
           .from("leagues")
-          .select("id, name, invite_code, owner_id")
+          .select("id, name, invite_code, owner_id, competition_code")
           .in("id", leagueIds);
 
         setMyLeagues(leagues || []);
@@ -64,7 +81,12 @@ export default function LeaguesPage() {
 
     const { data: league, error } = await supabase
       .from("leagues")
-      .insert({ name: newLeagueName.trim(), invite_code, owner_id: userId })
+      .insert({
+        name: newLeagueName.trim(),
+        invite_code,
+        owner_id: userId,
+        competition_code: newLeagueCompetition,
+      })
       .select()
       .single();
 
@@ -89,7 +111,7 @@ export default function LeaguesPage() {
 
     const { data: league, error } = await supabase
       .from("leagues")
-      .select("id, name, invite_code, owner_id")
+      .select("id, name, invite_code, owner_id, competition_code")
       .eq("invite_code", joinCode.trim().toUpperCase())
       .single();
 
@@ -140,10 +162,9 @@ export default function LeaguesPage() {
   return (
     <main style={{ minHeight: "100vh", background: "#0f172a", color: "#fff", padding: 40 }}>
       <div style={{ maxWidth: 600, margin: "0 auto" }}>
-<div style={{ display: "flex", alignItems: "center", marginBottom: 20 }}>
-  <Image src="/images/logo.png" alt="Scorecast XI" width={443} height={319} />
-</div>
-
+        <div style={{ display: "flex", alignItems: "center", marginBottom: 20 }}>
+          <Image src="/images/logo.png" alt="Scorecast XI" width={443} height={319} />
+        </div>
 
         <Link href="/dashboard" style={{ color: "#93c5fd" }}>
           &larr; Back to dashboard
@@ -163,6 +184,17 @@ export default function LeaguesPage() {
                 placeholder="League name"
                 style={inputStyle}
               />
+              <select
+                value={newLeagueCompetition}
+                onChange={(e) => setNewLeagueCompetition(e.target.value)}
+                style={inputStyle}
+              >
+                {COMPETITIONS.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
               <button onClick={handleCreate} style={buttonStyle}>
                 Create
               </button>
@@ -192,7 +224,7 @@ export default function LeaguesPage() {
                   {myLeagues.map((l) => (
                     <li key={l.id} style={{ marginBottom: 10 }}>
                       <Link href={`/leagues/${l.id}`} style={{ color: "#93c5fd" }}>
-                        <strong>{l.name}</strong> — code: <code>{l.invite_code}</code>
+                        <strong>{l.name}</strong> ({l.competition_code}) — code: <code>{l.invite_code}</code>
                       </Link>
                     </li>
                   ))}

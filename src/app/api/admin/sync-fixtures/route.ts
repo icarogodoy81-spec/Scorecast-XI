@@ -116,6 +116,7 @@ export async function POST(req: NextRequest) {
 
       return {
         api_fixture_id: match.id,
+        competition_code: competition,
 
         league_id: competitionData?.id ?? null,
         league_name: competitionData?.name ?? competition,
@@ -213,4 +214,3 @@ export async function GET(req: NextRequest) {
   const patchedReq = new NextRequest(url, req);
   return POST(patchedReq);
 }
-
