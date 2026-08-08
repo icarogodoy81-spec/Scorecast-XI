@@ -106,8 +106,6 @@ function isAuthorized(request: Request) {
   return scoringSecretHeader === SCORING_SECRET || bearerToken === SCORING_SECRET;
 }
 
-}
-
 export async function POST(request: Request) {
   try {
     if (!isAuthorized(request)) {
@@ -265,6 +263,7 @@ export async function POST(request: Request) {
     );
   }
 }
+
 export async function GET(request: Request) {
   return POST(request);
 }
