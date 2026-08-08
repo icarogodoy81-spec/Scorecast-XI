@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
   }
 
   const { searchParams } = new URL(req.url);
-  const competition = searchParams.get('competition');
+  const leagueId = searchParams.get('league_id');
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -19,12 +19,12 @@ export async function GET(req: NextRequest) {
   let query = supabase
     .from('fixtures')
     .select(
-      'id, home_team_name, away_team_name, home_team_logo, away_team_logo, fixture_date, status_short, round, home_goals, away_goals, league_name'
+      'id, home_team_name, away_team_name, home_team_logo, away_team_logo, fixture_date, status_short, round, home_goals, away_goals, league_id'
     )
     .order('fixture_date', { ascending: true });
 
-  if (competition) {
-    query = query.eq('league_name_code', competition); // see note below
+  if (leagueId) {
+    query = query.eq('league_id', leagueId);
   }
 
   const { data, error } = await query;
@@ -42,6 +42,7 @@ export async function GET(req: NextRequest) {
     utcDate: row.fixture_date,
     status: row.status_short,
     group_name: row.round,
+    league_id: row.league_id,
     score: {
       fullTime: { home: row.home_goals, away: row.away_goals },
     },
