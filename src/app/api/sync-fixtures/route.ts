@@ -1,93 +1,153 @@
-import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SCORING_SECRET = process.env.SCORING_SECRET;
 
-export async function GET() {
+type PredictionRow = {
+  id: string;
+  user_id: string;
+  match_id: number;
+  home_score: number;
+  away_score: number;
+  scored_at: string | null;
+};
+
+function getOutcome(home: number, away: number) {
+  if (home > away) return 'HOME';
+  if (away > home) return 'AWAY';
+  return 'DRAW';
+}
+
+function calculatePoints(
+  predictedHome: number,
+  predictedAway: number,
+  actualHome: number,
+  actualAway: number
+) {
+  const predictedOutcome = getOutcome(predictedHome, predictedAway);
+  const actualOutcome = getOutcome(actualHome, actualAway);
+  const predictedDiff = predictedHome - predictedAway;
+  const actualDiff = actualHome - actualAway;
+
+  if (predictedHome === actualHome && predictedAway === actualAway) return 4;
+  if (actualOutcome !== 'DRAW' && predictedOutcome === actualOutcome && predictedDiff === actualDiff) return 3;
+  if (predictedOutcome === actualOutcome) return 2;
+  return 0;
+}
+
+function isAuthorized(request: Request) {
+  const url = new URL(request.url);
+  const isLocalhost = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+  if (isLocalhost) return true;
+  if (!SCORING_SECRET) return false;
+
+  const scoringSecretHeader = request.headers.get('x-scoring-secret');
+  const authorizationHeader = request.headers.get('authorization');
+  const bearerToken = authorizationHeader?.startsWith('Bearer ')
+    ? authorizationHeader.replace('Bearer ', '').trim()
+    : null;
+
+  return scoringSecretHeader === SCORING_SECRET || bearerToken === SCORING_SECRET;
+}
+
+export async function POST(request: Request) {
   try {
-    const apiKey = process.env.FOOTBALL_API_KEY;
-
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: "Missing FOOTBALL_API_KEY in .env.local" },
-        { status: 500 }
-      );
+    if (!isAuthorized(request)) {
+      return NextResponse.json({ error: 'Unauthorized scoring request' }, { status: 401 });
     }
 
-    const leagueId = 2; // Champions League
-    const season = 2025; // 2025/26 Champions League season
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      return NextResponse.json({ error: 'Missing Supabase server env variables' }, { status: 500 });
+    }
 
-    const response = await fetch(
-      `https://v3.football.api-sports.io/fixtures?league=${leagueId}&season=${season}`,
-      {
-        headers: {
-          "x-apisports-key": apiKey,
-        },
-        cache: "no-store",
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+
+    // Pull finished fixtures directly from your own fixtures table
+    const { data: finishedFixtures, error: fixturesError } = await supabase
+      .from('fixtures')
+      .select('id, home_goals, away_goals, status_short')
+      .eq('status_short', 'FT')
+      .not('home_goals', 'is', null)
+      .not('away_goals', 'is', null);
+
+    if (fixturesError) {
+      throw new Error(fixturesError.message);
+    }
+
+    let updatedPredictions = 0;
+    const scoredMatches = [];
+
+    for (const fixture of finishedFixtures || []) {
+      const actualHome = fixture.home_goals as number;
+      const actualAway = fixture.away_goals as number;
+
+      const { data: predictions, error: predictionsError } = await supabase
+        .from('predictions')
+        .select('id, user_id, match_id, home_score, away_score, scored_at')
+        .eq('match_id', fixture.id)
+        .is('scored_at', null);
+
+      if (predictionsError) {
+        throw new Error(predictionsError.message);
       }
-    );
 
-    const data = await response.json();
+      const predictionRows = (predictions || []) as PredictionRow[];
 
-    if (!response.ok) {
-      return NextResponse.json(
-        { error: "Football API request failed", details: data },
-        { status: 500 }
-      );
-    }
+      for (const prediction of predictionRows) {
+        const points = calculatePoints(
+          prediction.home_score,
+          prediction.away_score,
+          actualHome,
+          actualAway
+        );
 
-    const fixtures = data.response || [];
+        const { error: updateError } = await supabase
+          .from('predictions')
+          .update({
+            points,
+            actual_home_score: actualHome,
+            actual_away_score: actualAway,
+            match_status: 'FINISHED',
+            scored_at: new Date().toISOString(),
+          })
+          .eq('id', prediction.id);
 
-    const rows = fixtures.map((item: any) => ({
-      api_fixture_id: item.fixture.id,
-      league_id: item.league.id,
-      league_name: item.league.name,
-      season: item.league.season,
-      round: item.league.round,
-      fixture_date: item.fixture.date,
-      status_short: item.fixture.status.short,
-      status_long: item.fixture.status.long,
-      home_team_id: item.teams.home.id,
-      home_team_name: item.teams.home.name,
-      home_team_logo: item.teams.home.logo,
-      away_team_id: item.teams.away.id,
-      away_team_name: item.teams.away.name,
-      away_team_logo: item.teams.away.logo,
-      home_goals: item.goals.home,
-      away_goals: item.goals.away,
-    }));
+        if (updateError) {
+          throw new Error(updateError.message);
+        }
 
-    if (rows.length === 0) {
-      return NextResponse.json({
-        message: "No fixtures returned from API",
-        count: 0,
-      });
-    }
+        updatedPredictions += 1;
+      }
 
-    const { error } = await supabaseAdmin
-      .from("fixtures")
-      .upsert(rows, {
-        onConflict: "api_fixture_id",
-      });
-
-    if (error) {
-      return NextResponse.json(
-        { error: "Supabase insert failed", details: error },
-        { status: 500 }
-      );
+      if (predictionRows.length > 0) {
+        scoredMatches.push({
+          matchId: fixture.id,
+          actualHome,
+          actualAway,
+          predictionsScored: predictionRows.length,
+        });
+      }
     }
 
     return NextResponse.json({
-      message: "Fixtures synced successfully",
-      count: rows.length,
+      success: true,
+      finishedFixturesFound: (finishedFixtures || []).length,
+      updatedPredictions,
+      scoredMatches,
     });
-  } catch (error: any) {
+  } catch (error) {
+    console.error('Scoring error:', error);
     return NextResponse.json(
-      { error: "Unexpected error", details: error.message },
+      { error: error instanceof Error ? error.message : 'Failed to calculate points' },
       { status: 500 }
     );
   }
+}
+
+export async function GET(request: Request) {
+  return POST(request);
 }
