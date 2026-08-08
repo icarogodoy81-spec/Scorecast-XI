@@ -13,6 +13,10 @@ const footballDataApiKey =
 const footballDataBaseUrl =
   process.env.FOOTBALL_DATA_BASE_URL || "https://api.football-data.org/v4";
 
+console.log("KEY LOADED:", !!footballDataApiKey, footballDataApiKey?.length);
+console.log("SUPABASE URL LOADED:", !!supabaseUrl);
+console.log("SUPABASE SERVICE ROLE KEY LOADED:", !!supabaseServiceRoleKey);
+
 function getSupabaseAdmin() {
   if (!supabaseUrl || !supabaseServiceRoleKey) {
     throw new Error(
@@ -38,6 +42,30 @@ function getApiHeaders() {
   return {
     "X-Auth-Token": footballDataApiKey,
   };
+}
+
+function toShortStatus(status: string | null): string {
+  switch (status) {
+    case "SCHEDULED":
+    case "TIMED":
+      return "NS";
+    case "IN_PLAY":
+      return "LIVE";
+    case "PAUSED":
+      return "HT";
+    case "FINISHED":
+      return "FT";
+    case "POSTPONED":
+      return "PST";
+    case "SUSPENDED":
+      return "SUSP";
+    case "CANCELLED":
+      return "CANC";
+    case "AWARDED":
+      return "AWD";
+    default:
+      return "NS";
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -70,8 +98,7 @@ export async function POST(req: NextRequest) {
     }
 
     const apiUrl = new URL(
-      `/competitions/${competition}/matches`,
-      footballDataBaseUrl
+      `${footballDataBaseUrl.replace(/\/$/, "")}/competitions/${competition}/matches`
     );
 
     apiUrl.searchParams.set("season", String(season));
@@ -112,61 +139,62 @@ export async function POST(req: NextRequest) {
       const awayTeam = match.awayTeam;
       const score = match.score;
 
-      const fixtureDate = match.utcDate ? new Date(match.utcDate) : null;
+      const utcDate = match.utcDate ?? null;
 
       return {
         api_fixture_id: match.id,
+        fixture_id: match.id,
         competition_code: competition,
 
         league_id: competitionData?.id ?? null,
-        league_name: competitionData?.name ?? competition,
+        league_logo: competitionData?.emblem ?? null,
+        league_flag: null,
         season,
         round: match.matchday
           ? `Matchday ${match.matchday}`
           : match.stage ?? null,
 
-        fixture_date: match.utcDate ?? null,
-        fixture_timestamp: fixtureDate
-          ? Math.floor(fixtureDate.getTime() / 1000)
-          : null,
+        date: utcDate,
+        fixture_date: utcDate,
+        kickoff_time: utcDate,
         timezone: "UTC",
 
-        venue_id: null,
         venue_name: null,
         venue_city: null,
 
-        referee: Array.isArray(match.referees)
-          ? match.referees.map((ref: any) => ref.name).filter(Boolean).join(", ") || null
-          : null,
-
+        status: match.status ?? null,
+        status_short: toShortStatus(match.status),
         status_long: match.status ?? null,
-        status_short: match.status ?? null,
-        status_elapsed: null,
+        elapsed: null,
 
         home_team_id: homeTeam?.id ?? null,
         home_team_name: homeTeam?.name ?? null,
-        home_team_logo: null,
+        home_team: homeTeam?.name ?? null,
+        home_team_logo: homeTeam?.crest ?? null,
+        home_logo: homeTeam?.crest ?? null,
 
         away_team_id: awayTeam?.id ?? null,
         away_team_name: awayTeam?.name ?? null,
-        away_team_logo: null,
+        away_team: awayTeam?.name ?? null,
+        away_team_logo: awayTeam?.crest ?? null,
+        away_logo: awayTeam?.crest ?? null,
 
         home_goals: score?.fullTime?.home ?? null,
         away_goals: score?.fullTime?.away ?? null,
-
-        halftime_home_goals: score?.halfTime?.home ?? null,
-        halftime_away_goals: score?.halfTime?.away ?? null,
-
-        fulltime_home_goals: score?.fullTime?.home ?? null,
-        fulltime_away_goals: score?.fullTime?.away ?? null,
+        home_score: score?.fullTime?.home ?? null,
+        away_score: score?.fullTime?.away ?? null,
 
         extratime_home_goals: score?.extraTime?.home ?? null,
         extratime_away_goals: score?.extraTime?.away ?? null,
+        extratime_home_score: score?.extraTime?.home ?? null,
+        extratime_away_score: score?.extraTime?.away ?? null,
 
         penalty_home_goals: score?.penalties?.home ?? null,
         penalty_away_goals: score?.penalties?.away ?? null,
+        penalty_home_score: score?.penalties?.home ?? null,
+        penalty_away_score: score?.penalties?.away ?? null,
 
-        raw_json: match,
+        raw: match,
         updated_at: new Date().toISOString(),
       };
     });
@@ -178,6 +206,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (error) {
+      console.error("SUPABASE UPSERT ERROR:", error);
       return NextResponse.json(
         {
           success: false,
@@ -197,16 +226,19 @@ export async function POST(req: NextRequest) {
       message: "Fixtures synced successfully",
     });
   } catch (error: any) {
+    console.error("SYNC-FIXTURES ERROR:", error);
     return NextResponse.json(
       {
         success: false,
         message: "Unexpected sync-fixtures error",
         error: error?.message ?? String(error),
+        stack: error?.stack ?? null,
       },
       { status: 500 }
     );
   }
 }
+
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   url.searchParams.set("competition", url.searchParams.get("competition") || "BSA");
