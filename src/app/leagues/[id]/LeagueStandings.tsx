@@ -32,7 +32,96 @@ const THEME = {
   text: "#f8fafc",
   accent: "#93c5fd",
   green: "#4ade80",
+  inputBg: "#020617",
 };
+
+type TeamMeta = { primary: string; secondary: string; shortName?: string };
+
+const CLUB_COLOURS: Record<string, TeamMeta> = {
+  flamengo: { primary: "#c8102e", secondary: "#111111", shortName: "FLA" },
+  palmeiras: { primary: "#006437", secondary: "#ffffff", shortName: "PAL" },
+  corinthians: { primary: "#111111", secondary: "#ffffff", shortName: "COR" },
+  "sao paulo": { primary: "#d71920", secondary: "#111111", shortName: "SAO" },
+  santos: { primary: "#111111", secondary: "#ffffff", shortName: "SAN" },
+  fluminense: { primary: "#6f263d", secondary: "#00843d", shortName: "FLU" },
+  vasco: { primary: "#111111", secondary: "#ffffff", shortName: "VAS" },
+  botafogo: { primary: "#111111", secondary: "#ffffff", shortName: "BOT" },
+  gremio: { primary: "#00a3e0", secondary: "#111111", shortName: "GRE" },
+  internacional: { primary: "#d50032", secondary: "#ffffff", shortName: "INT" },
+  cruzeiro: { primary: "#0033a0", secondary: "#ffffff", shortName: "CRU" },
+  atletico: { primary: "#111111", secondary: "#ffffff", shortName: "CAM" },
+  bahia: { primary: "#005bbb", secondary: "#d71920", shortName: "BAH" },
+  fortaleza: { primary: "#0057b8", secondary: "#d71920", shortName: "FOR" },
+  ceara: { primary: "#111111", secondary: "#ffffff", shortName: "CEA" },
+  sport: { primary: "#c8102e", secondary: "#111111", shortName: "SPT" },
+  vitoria: { primary: "#d71920", secondary: "#111111", shortName: "VIT" },
+  juventude: { primary: "#00843d", secondary: "#ffffff", shortName: "JUV" },
+  mirassol: { primary: "#f6c600", secondary: "#00843d", shortName: "MIR" },
+  bragantino: { primary: "#ffffff", secondary: "#111111", shortName: "RBB" },
+  cuiaba: { primary: "#00843d", secondary: "#f6c600", shortName: "CUI" },
+  goias: { primary: "#00843d", secondary: "#ffffff", shortName: "GOI" },
+  coritiba: { primary: "#00843d", secondary: "#ffffff", shortName: "CFC" },
+  athletico: { primary: "#d71920", secondary: "#111111", shortName: "CAP" },
+};
+
+function normaliseTeamName(name: string) {
+  return String(name)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\b(fc|ec|sc|ac|club|clube|regatas|futebol|football|sociedade|esporte)\b/gi, "")
+    .replace(/[^a-z0-9 ]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getTeamMeta(teamName: string): TeamMeta {
+  const normalised = normaliseTeamName(teamName);
+  const exact = CLUB_COLOURS[teamName.toLowerCase()] || CLUB_COLOURS[normalised];
+  if (exact) return exact;
+
+  const foundKey = Object.keys(CLUB_COLOURS).find((key) => {
+    const nk = normaliseTeamName(key);
+    return normalised.includes(nk) || nk.includes(normalised);
+  });
+  if (foundKey) return CLUB_COLOURS[foundKey];
+
+  return { primary: "#1f2937", secondary: "#e5e7eb", shortName: teamName.slice(0, 3).toUpperCase() };
+}
+
+function getHexBrightness(hex: string) {
+  const c = hex.replace("#", "");
+  if (c.length !== 6) return 0;
+  const r = parseInt(c.slice(0, 2), 16);
+  const g = parseInt(c.slice(2, 4), 16);
+  const b = parseInt(c.slice(4, 6), 16);
+  return (r * 299 + g * 587 + b * 114) / 1000;
+}
+
+function isLightColour(hex: string) {
+  return getHexBrightness(hex) > 210;
+}
+
+function getBadgeTextColor(meta: TeamMeta) {
+  return isLightColour(meta.primary) ? "#111827" : "#ffffff";
+}
+
+function TeamBadge({ name }: { name: string }) {
+  const meta = getTeamMeta(name);
+  const style = {
+    background: `linear-gradient(135deg, ${meta.primary}, ${meta.secondary})`,
+    color: getBadgeTextColor(meta),
+    borderColor: isLightColour(meta.primary) ? "#64748b" : meta.primary,
+  };
+  return (
+    <div
+      style={style}
+      className="w-10 h-10 rounded-full border flex items-center justify-center text-xs font-bold shrink-0"
+    >
+      {meta.shortName}
+    </div>
+  );
+}
 
 export default function LeagueStandings({
   standings,
@@ -102,12 +191,12 @@ export default function LeagueStandings({
         >
           <div
             style={{ background: THEME.cardBg, color: THEME.text, border: `1px solid ${THEME.border}` }}
-            className="rounded-xl max-w-md w-full max-h-[80vh] overflow-y-auto"
+            className="rounded-xl max-w-lg w-full max-h-[80vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div
               style={{ borderBottom: `1px solid ${THEME.border}` }}
-              className="px-5 py-4 flex items-center justify-between"
+              className="px-5 py-4 flex items-center justify-between sticky top-0"
             >
               <h3 className="font-bold">{selected.username}&apos;s predictions</h3>
               <button
@@ -118,22 +207,46 @@ export default function LeagueStandings({
                 &times;
               </button>
             </div>
-            <div>
+
+            <div className="px-5 py-4 flex flex-col gap-3">
               {selected.predictions.length === 0 && (
-                <p style={{ color: THEME.mutedText }} className="px-5 py-4 text-sm">
-                  No finished matches yet.
+                <p style={{ color: THEME.mutedText }} className="text-sm">
+                  No matches started yet.
                 </p>
               )}
+
               {selected.predictions.map((p) => (
-                <div key={p.matchId} style={{ borderTop: `1px solid ${THEME.border}` }} className="px-5 py-3">
-                  <div className="flex items-center justify-between text-sm font-medium">
-                    <span>
-                      {p.homeTeam} {p.actualHome} - {p.actualAway} {p.awayTeam}
-                    </span>
-                    <span style={{ color: THEME.green }} className="font-bold">{p.points} pts</span>
+                <div
+                  key={p.matchId}
+                  style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${THEME.border}` }}
+                  className="rounded-lg p-3"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <TeamBadge name={p.homeTeam} />
+                      <span className="text-xs font-medium truncate">{p.homeTeam}</span>
+                    </div>
+
+                    <div
+                      style={{ background: THEME.inputBg, border: `1px solid ${THEME.border}` }}
+                      className="rounded-md px-3 py-1 font-bold text-sm mx-2 shrink-0"
+                    >
+                      {p.actualHome} - {p.actualAway}
+                    </div>
+
+                    <div className="flex items-center gap-2 min-w-0 justify-end">
+                      <span className="text-xs font-medium truncate">{p.awayTeam}</span>
+                      <TeamBadge name={p.awayTeam} />
+                    </div>
                   </div>
-                  <div style={{ color: THEME.mutedText }} className="text-xs mt-1">
-                    Guessed {p.predictedHome} - {p.predictedAway} · {p.outcome}
+
+                  <div className="flex items-center justify-between text-xs" style={{ color: THEME.mutedText }}>
+                    <span>
+                      Guessed <strong style={{ color: THEME.text }}>{p.predictedHome} - {p.predictedAway}</strong> · {p.outcome}
+                    </span>
+                    <span style={{ color: THEME.green }} className="font-bold">
+                      {p.points} pts
+                    </span>
                   </div>
                 </div>
               ))}

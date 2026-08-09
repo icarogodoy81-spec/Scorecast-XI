@@ -12,7 +12,10 @@ const THEME = {
   green: "#4ade80",
 };
 
-const FINISHED_STATUSES = ["FT", "FINISHED", "AET", "PEN"];
+const VISIBLE_STATUSES = [
+  "FT", "FINISHED", "AET", "PEN",
+  "LIVE", "IN_PLAY", "1H", "2H", "HT", "PAUSED",
+];
 
 export default async function LeagueDetailPage({
   params,
@@ -118,7 +121,7 @@ export default async function LeagueDetailPage({
     const detailedPredictions = userPreds
       .filter((p: any) => {
         const match = matchesById.get(p.match_id);
-        return match && FINISHED_STATUSES.includes((match.status || "").toUpperCase());
+        return match && VISIBLE_STATUSES.includes((match.status || "").toUpperCase());
       })
       .map((p: any) => {
         const match = matchesById.get(p.match_id);
