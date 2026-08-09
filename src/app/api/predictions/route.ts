@@ -72,11 +72,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing scores' }, { status: 400 });
     }
 
-    const { data: fixture, error: fixtureError } = await supabase
-      .from('fixtures')
-      .select('id, api_fixture_id')
-      .eq('api_fixture_id', apiId)
-      .single();
+const { data: fixture, error: fixtureError } = await supabase
+  .from('fixtures')
+  .select('id, api_fixture_id')
+  .eq('id', apiId)
+  .single();
+
 
     if (fixtureError || !fixture) {
       return NextResponse.json({ error: 'Fixture not found' }, { status: 404 });
