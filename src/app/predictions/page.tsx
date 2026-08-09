@@ -137,13 +137,14 @@ function getInitials(name: string) {
 
 function getFixtureId(fixture: Fixture) {
   return (
-    fixture.id ||
+    fixture.api_fixture_id ||
     fixture.fixture_id ||
     fixture.fixture?.id ||
     fixture.fixture?.fixture_id ||
-    `${getHomeName(fixture)}-${getAwayName(fixture)}-${getKickoff(fixture)}`
+    fixture.id
   );
 }
+
 
 function getHomeName(fixture: Fixture) {
   return (
