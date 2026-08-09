@@ -40,13 +40,12 @@ async function getPlayerData(userId: string) {
 
   let matches: any[] = [];
 
-  if (matchIds.length > 0) {
-    const matchesResponse = await supabaseAdmin
-      .from("matches")
-      .select("id, api_fixture_id, home_team, away_team, match_date, home_score, away_score, status")
-      .in("id", matchIds);
+  if (matchIds.length > 0) {const matchesResponse = await supabaseAdmin
+  .from("fixtures")
+  .select("id, home_team, away_team, match_date, home_score, away_score, status")
+  .in("id", matchIds);
 
-    if (matchesResponse.error) {
+ if (matchesResponse.error) {
       throw new Error(matchesResponse.error.message);
     }
 
