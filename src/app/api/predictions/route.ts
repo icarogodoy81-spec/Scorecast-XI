@@ -20,7 +20,7 @@ export async function GET() {
 
     const { data, error } = await supabase
       .from('predictions')
-      .select('match_id, home_score, away_score')
+      .select('fixture_id, match_id, home_score, away_score')
       .eq('user_id', user.id);
 
     if (error) {
@@ -29,6 +29,7 @@ export async function GET() {
 
     return NextResponse.json({
       predictions: (data || []).map((row) => ({
+        fixture_id: row.fixture_id,
         match_id: row.match_id,
         home_score: row.home_score,
         away_score: row.away_score,
@@ -61,9 +62,9 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const { matchId, fixtureId, homeScore, awayScore } = body;
-    const finalMatchId = fixtureId ?? matchId;
+    const apiId = Number(fixtureId ?? matchId);
 
-    if (!finalMatchId) {
+    if (!apiId) {
       return NextResponse.json({ error: 'Missing matchId' }, { status: 400 });
     }
 
@@ -71,15 +72,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing scores' }, { status: 400 });
     }
 
+    const { data: fixture, error: fixtureError } = await supabase
+      .from('fixtures')
+      .select('id, api_fixture_id')
+      .eq('api_fixture_id', apiId)
+      .single();
+
+    if (fixtureError || !fixture) {
+      return NextResponse.json({ error: 'Fixture not found' }, { status: 404 });
+    }
+
     const { error } = await supabase.from('predictions').upsert(
       {
         user_id: user.id,
-        match_id: Number(finalMatchId),
+        fixture_id: fixture.id,
+        match_id: fixture.api_fixture_id,
         home_score: Number(homeScore),
         away_score: Number(awayScore),
         updated_at: new Date().toISOString(),
       },
-      { onConflict: 'user_id,match_id' },
+      { onConflict: 'user_id,fixture_id' },
     );
 
     if (error) {
