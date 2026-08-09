@@ -12,6 +12,8 @@ const THEME = {
   green: "#4ade80",
 };
 
+const FINISHED_STATUSES = ["FT", "FINISHED", "AET", "PEN"];
+
 export default async function LeagueDetailPage({
   params,
 }: {
@@ -89,9 +91,20 @@ export default async function LeagueDetailPage({
   const { data: predictions } = await supabase
     .from("predictions")
     .select(
-      "id, user_id, home_score, away_score, actual_home_score, actual_away_score, points, match_status, match_id, matches(home_team, away_team, match_date)"
+      "id, user_id, home_score, away_score, actual_home_score, actual_away_score, points, match_id"
     )
     .in("user_id", userIds);
+
+  const matchIds = [...new Set((predictions || []).map((p: any) => p.match_id))];
+
+  const { data: matches } = await supabase
+    .from("matches")
+    .select("api_fixture_id, home_team, away_team, match_date, status, home_score, away_score")
+    .in("api_fixture_id", matchIds);
+
+  const matchesById = new Map(
+    (matches || []).map((m: any) => [m.api_fixture_id, m])
+  );
 
   const standings = (members || []).map((m: any) => {
     const username = m.profiles?.username || "Unknown";
@@ -103,14 +116,18 @@ export default async function LeagueDetailPage({
     let correctResult = 0;
 
     const detailedPredictions = userPreds
-      .filter((p: any) => p.match_status === "FINISHED")
+      .filter((p: any) => {
+        const match = matchesById.get(p.match_id);
+        return match && FINISHED_STATUSES.includes((match.status || "").toUpperCase());
+      })
       .map((p: any) => {
+        const match = matchesById.get(p.match_id);
         points += Number(p.points) || 0;
 
         const predH = p.home_score;
         const predA = p.away_score;
-        const actH = p.actual_home_score;
-        const actA = p.actual_away_score;
+        const actH = match?.home_score ?? p.actual_home_score;
+        const actA = match?.away_score ?? p.actual_away_score;
 
         let outcome = "";
 
@@ -133,9 +150,9 @@ export default async function LeagueDetailPage({
 
         return {
           matchId: p.match_id,
-          homeTeam: p.matches?.home_team || "?",
-          awayTeam: p.matches?.away_team || "?",
-          matchDate: p.matches?.match_date,
+          homeTeam: match?.home_team || "?",
+          awayTeam: match?.away_team || "?",
+          matchDate: match?.match_date,
           predictedHome: predH,
           predictedAway: predA,
           actualHome: actH,

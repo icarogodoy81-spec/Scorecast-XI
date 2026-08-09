@@ -40,24 +40,24 @@ async function getPlayerData(userId: string) {
 
   let matches: any[] = [];
 
-if (matchIds.length > 0) {
-  const matchesResponse = await supabaseAdmin
-    .from("matches")
-    .select("id, api_fixture_id, home_team, away_team, match_date, home_score, away_score, status")
-    .in("api_fixture_id", matchIds);
+  if (matchIds.length > 0) {
+    const matchesResponse = await supabaseAdmin
+      .from("matches")
+      .select("id, api_fixture_id, home_team, away_team, match_date, home_score, away_score, status")
+      .in("id", matchIds);
 
-  if (matchesResponse.error) {
-    throw new Error(matchesResponse.error.message);
+    if (matchesResponse.error) {
+      throw new Error(matchesResponse.error.message);
+    }
+
+    matches = matchesResponse.data ?? [];
   }
 
-  matches = matchesResponse.data ?? [];
-}
+  const matchesById = new Map(matches.map((m) => [m.id, m]));
+  const now = new Date();
 
-const matchesById = new Map(matches.map((m) => [m.api_fixture_id, m]));
-const now = new Date();
-
-const visiblePredictions = predictions
-  .map((prediction) => {
+  const visiblePredictions = predictions
+    .map((prediction) => {
       const match = matchesById.get(prediction.match_id);
       if (!match) return null;
 
@@ -69,15 +69,16 @@ const visiblePredictions = predictions
         "FINISHED",
         "LIVE",
         "FT",
+        "AET",
+        "PEN",
         "COMPLETED",
       ];
       const started = kickoff <= now || finishedOrLiveStatuses.includes(statusUpper);
 
       if (!started) return null;
 
-
       return {
-        matchId: match.api_fixture_id,
+        matchId: match.id,
         homeTeam: match.home_team,
         awayTeam: match.away_team,
         matchDate: match.match_date,
@@ -92,9 +93,12 @@ const visiblePredictions = predictions
     .filter((row): row is NonNullable<typeof row> => row !== null)
     .sort((a, b) => new Date(b.matchDate).getTime() - new Date(a.matchDate).getTime());
 
+  const totalPoints = visiblePredictions.reduce((sum, p) => sum + (Number(p.points) || 0), 0);
+
   return {
     username: profileResponse.data.username ?? profileResponse.data.id,
     predictions: visiblePredictions,
+    totalPoints,
   };
 }
 
@@ -117,6 +121,7 @@ export default async function PlayerPredictionsPage({
 
   let username = "";
   let predictions: any[] = [];
+  let totalPoints = 0;
   let errorMessage = "";
 
   try {
@@ -124,6 +129,7 @@ export default async function PlayerPredictionsPage({
 
     username = data.username;
     predictions = data.predictions;
+    totalPoints = data.totalPoints;
   } catch (error: any) {
     errorMessage = error.message;
   }
@@ -156,6 +162,11 @@ export default async function PlayerPredictionsPage({
 
         <section className="card">
           <h1 className="player-title">{username}&apos;s guesses</h1>
+          {!errorMessage && (
+            <p style={{ color: "#7dd3fc", fontWeight: 900, marginBottom: 18, fontSize: 15 }}>
+              Total points: {totalPoints}
+            </p>
+          )}
 
           {errorMessage ? (
             <div className="empty">Error: {errorMessage}</div>
