@@ -87,7 +87,7 @@ const { data: fixture, error: fixtureError } = await supabase
       {
         user_id: user.id,
         fixture_id: fixture.id,
-        match_id: fixture.api_fixture_id,
+        match_id: fixture.id,
         home_score: Number(homeScore),
         away_score: Number(awayScore),
         updated_at: new Date().toISOString(),
