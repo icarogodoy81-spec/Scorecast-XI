@@ -98,16 +98,27 @@ export default async function LeagueDetailPage({
     )
     .in("user_id", userIds);
 
-  const matchIds = [...new Set((predictions || []).map((p: any) => p.match_id))];
+  const fixtureIds = [...new Set((predictions || []).map((p: any) => p.match_id))];
+
+  // Step 1: get fixtures (maps predictions.match_id → api_fixture_id + team names)
+  const { data: fixtures } = await supabase
+    .from("fixtures")
+    .select("id, api_fixture_id, home_team_name, away_team_name")
+    .in("id", fixtureIds);
+
+  const fixturesById = new Map((fixtures || []).map((f: any) => [f.id, f]));
+
+  // Step 2: get matches using api_fixture_id from fixtures
+  const apiFixtureIds = [...new Set((fixtures || []).map((f: any) => f.api_fixture_id).filter(Boolean))];
 
   const { data: matches } = await supabase
     .from("matches")
     .select("api_fixture_id, home_team, away_team, match_date, status, home_score, away_score")
-    .in("api_fixture_id", matchIds);
+    .in("api_fixture_id", apiFixtureIds);
 
-  const matchesById = new Map(
-    (matches || []).map((m: any) => [m.api_fixture_id, m])
-  );
+  const matchesByApiId = new Map((matches || []).map((m: any) => [m.api_fixture_id, m]));
+
+  const now = new Date();
 
   const standings = (members || []).map((m: any) => {
     const username = m.profiles?.username || "Unknown";
@@ -120,11 +131,22 @@ export default async function LeagueDetailPage({
 
     const detailedPredictions = userPreds
       .filter((p: any) => {
-        const match = matchesById.get(p.match_id);
-        return match && VISIBLE_STATUSES.includes((match.status || "").toUpperCase());
+        const fixture = fixturesById.get(p.match_id);
+        if (!fixture) return false;
+        const apiId = fixture.api_fixture_id;
+        const match = matchesByApiId.get(apiId);
+        if (!match) return false;
+        const kickoff = match.match_date ? new Date(match.match_date) : null;
+        const statusUpper = (match.status || "").toUpperCase();
+        const hasScores = match.home_score !== null && match.home_score !== undefined && match.away_score !== null && match.away_score !== undefined;
+        const started = (kickoff && kickoff <= now) || VISIBLE_STATUSES.includes(statusUpper) || hasScores;
+        return started;
       })
       .map((p: any) => {
-        const match = matchesById.get(p.match_id);
+        const fixture = fixturesById.get(p.match_id);
+        const apiId = fixture?.api_fixture_id;
+        const match = matchesByApiId.get(apiId);
+
         points += Number(p.points) || 0;
 
         const predH = p.home_score;
@@ -153,8 +175,8 @@ export default async function LeagueDetailPage({
 
         return {
           matchId: p.match_id,
-          homeTeam: match?.home_team || "?",
-          awayTeam: match?.away_team || "?",
+          homeTeam: fixture?.home_team_name || match?.home_team || "?",
+          awayTeam: fixture?.away_team_name || match?.away_team || "?",
           matchDate: match?.match_date,
           predictedHome: predH,
           predictedAway: predA,
