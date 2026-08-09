@@ -38,52 +38,57 @@ async function getPlayerData(userId: string) {
   const predictions = predictionsResponse.data ?? [];
   const matchIds = predictions.map((p) => p.match_id).filter((id) => id !== null);
 
-  let matches: any[] = [];
+  let fixtures: any[] = [];
 
-  if (matchIds.length > 0) {const matchesResponse = await supabaseAdmin
-  .from("fixtures")
-  .select("id, home_team, away_team, match_date, home_score, away_score, status")
-  .in("id", matchIds);
+  if (matchIds.length > 0) {
+    const fixturesResponse = await supabaseAdmin
+      .from("fixtures")
+      .select("id, home_team_name, away_team_name, date, home_score, away_score, status")
+      .in("id", matchIds);
 
- if (matchesResponse.error) {
-      throw new Error(matchesResponse.error.message);
+    if (fixturesResponse.error) {
+      throw new Error(fixturesResponse.error.message);
     }
 
-    matches = matchesResponse.data ?? [];
+    fixtures = fixturesResponse.data ?? [];
   }
 
-  const matchesById = new Map(matches.map((m) => [m.id, m]));
+  const fixturesById = new Map(fixtures.map((f) => [f.id, f]));
   const now = new Date();
+
+  const finishedOrLiveStatuses = [
+    "IN_PLAY",
+    "PAUSED",
+    "FINISHED",
+    "LIVE",
+    "FT",
+    "AET",
+    "PEN",
+    "COMPLETED",
+    "1H",
+    "2H",
+    "HT",
+  ];
 
   const visiblePredictions = predictions
     .map((prediction) => {
-      const match = matchesById.get(prediction.match_id);
-      if (!match) return null;
+      const fixture = fixturesById.get(prediction.match_id);
+      if (!fixture) return null;
 
-      const kickoff = new Date(match.match_date);
-      const statusUpper = (match.status || "").toUpperCase();
-      const finishedOrLiveStatuses = [
-        "IN_PLAY",
-        "PAUSED",
-        "FINISHED",
-        "LIVE",
-        "FT",
-        "AET",
-        "PEN",
-        "COMPLETED",
-      ];
+      const kickoff = new Date(fixture.date);
+      const statusUpper = (fixture.status || "").toUpperCase();
       const started = kickoff <= now || finishedOrLiveStatuses.includes(statusUpper);
 
       if (!started) return null;
 
       return {
-        matchId: match.id,
-        homeTeam: match.home_team,
-        awayTeam: match.away_team,
-        matchDate: match.match_date,
-        status: match.status,
-        actualHome: match.home_score ?? prediction.actual_home_score,
-        actualAway: match.away_score ?? prediction.actual_away_score,
+        matchId: fixture.id,
+        homeTeam: fixture.home_team_name,
+        awayTeam: fixture.away_team_name,
+        matchDate: fixture.date,
+        status: fixture.status,
+        actualHome: fixture.home_score ?? prediction.actual_home_score,
+        actualAway: fixture.away_score ?? prediction.actual_away_score,
         guessHome: prediction.home_score,
         guessAway: prediction.away_score,
         points: prediction.points,
