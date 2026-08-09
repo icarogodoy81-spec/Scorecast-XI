@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type PredictionDetail = {
   matchId: string;
@@ -106,13 +106,94 @@ function getBadgeTextColor(meta: TeamMeta) {
   return isLightColour(meta.primary) ? "#111827" : "#ffffff";
 }
 
-function TeamBadge({ name }: { name: string }) {
+// ---- Logo lookup helpers (mirrors predictions page extraction) ----
+
+function cleanLogoUrl(value: any) {
+  if (!value || typeof value !== "string") return null;
+  const logo = value.trim();
+  return logo || null;
+}
+
+function extractName(side: any) {
+  return (
+    side?.name ||
+    side?.team?.name ||
+    ""
+  );
+}
+
+function extractLogo(side: any) {
+  return cleanLogoUrl(
+    side?.crest ||
+      side?.logo ||
+      side?.emblem ||
+      side?.image ||
+      side?.team?.crest ||
+      side?.team?.logo ||
+      side?.logo_path ||
+      side?.image_path
+  );
+}
+
+function buildLogoMap(fixturesData: any): Record<string, string> {
+  const map: Record<string, string> = {};
+
+  const items =
+    fixturesData?.fixtures ||
+    fixturesData?.matches ||
+    fixturesData?.data ||
+    fixturesData?.response ||
+    fixturesData ||
+    [];
+
+  if (!Array.isArray(items)) return map;
+
+  for (const fixture of items) {
+    const homeSide =
+      fixture.homeTeam || fixture.home || fixture.teams?.home || fixture.participants?.home || fixture.localteam;
+    const awaySide =
+      fixture.awayTeam || fixture.away || fixture.teams?.away || fixture.participants?.away || fixture.visitorteam;
+
+    const homeName = extractName(homeSide) || fixture.home_team || fixture.homeTeamName;
+    const awayName = extractName(awaySide) || fixture.away_team || fixture.awayTeamName;
+
+    const homeLogo = extractLogo(homeSide) || cleanLogoUrl(fixture.home_logo || fixture.homeLogo);
+    const awayLogo = extractLogo(awaySide) || cleanLogoUrl(fixture.away_logo || fixture.awayLogo);
+
+    if (homeName && homeLogo) map[normaliseTeamName(homeName)] = homeLogo;
+    if (awayName && awayLogo) map[normaliseTeamName(awayName)] = awayLogo;
+  }
+
+  return map;
+}
+
+function TeamBadge({ name, logoMap }: { name: string; logoMap: Record<string, string> }) {
+  const [failed, setFailed] = useState(false);
   const meta = getTeamMeta(name);
+  const logo = logoMap[normaliseTeamName(name)];
+
   const style = {
     background: `linear-gradient(135deg, ${meta.primary}, ${meta.secondary})`,
     color: getBadgeTextColor(meta),
     borderColor: isLightColour(meta.primary) ? "#64748b" : meta.primary,
   };
+
+  if (logo && !failed) {
+    return (
+      <div
+        style={style}
+        className="w-10 h-10 rounded-full border flex items-center justify-center overflow-hidden shrink-0"
+      >
+        <img
+          src={logo}
+          alt={`${name} badge`}
+          className="w-full h-full object-contain"
+          onError={() => setFailed(true)}
+        />
+      </div>
+    );
+  }
+
   return (
     <div
       style={style}
@@ -131,6 +212,21 @@ export default function LeagueStandings({
   currentUserId: string;
 }) {
   const [selected, setSelected] = useState<Standing | null>(null);
+  const [logoMap, setLogoMap] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    async function loadLogos() {
+      try {
+        const res = await fetch("/api/fixtures", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        setLogoMap(buildLogoMap(data));
+      } catch {
+        // silently fall back to initials
+      }
+    }
+    loadLogos();
+  }, []);
 
   return (
     <>
@@ -223,7 +319,7 @@ export default function LeagueStandings({
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      <TeamBadge name={p.homeTeam} />
+                      <TeamBadge name={p.homeTeam} logoMap={logoMap} />
                       <span className="text-xs font-medium truncate">{p.homeTeam}</span>
                     </div>
 
@@ -236,7 +332,7 @@ export default function LeagueStandings({
 
                     <div className="flex items-center gap-2 min-w-0 justify-end">
                       <span className="text-xs font-medium truncate">{p.awayTeam}</span>
-                      <TeamBadge name={p.awayTeam} />
+                      <TeamBadge name={p.awayTeam} logoMap={logoMap} />
                     </div>
                   </div>
 
