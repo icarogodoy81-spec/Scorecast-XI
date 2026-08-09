@@ -1,52 +1,108 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+export async function GET() {
+  try {
+    const supabase = await createClient();
 
-export async function GET(req: NextRequest) {
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    return NextResponse.json({ error: 'Missing Supabase server env variables' }, { status: 500 });
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError) {
+      return NextResponse.json({ error: userError.message }, { status: 401 });
+    }
+
+    if (!user) {
+      return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
+    }
+
+    const { data, error } = await supabase
+      .from('predictions')
+      .select('fixture_id, match_id, home_score, away_score')
+      .eq('user_id', user.id);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      predictions: (data || []).map((row) => ({
+        fixture_id: row.fixture_id,
+        match_id: row.match_id,
+        home_score: row.home_score,
+        away_score: row.away_score,
+      })),
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Failed to load predictions' },
+      { status: 500 },
+    );
   }
+}
 
-  const { searchParams } = new URL(req.url);
-  const leagueId = searchParams.get('league_id');
+export async function POST(request: Request) {
+  try {
+    const supabase = await createClient();
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-  let query = supabase
-    .from('fixtures')
-    .select(
-      'id, home_team_name, away_team_name, home_team_logo, away_team_logo, fixture_date, status_short, round, home_goals, away_goals, league_id'
-    )
-    .order('fixture_date', { ascending: true });
+    if (userError) {
+      return NextResponse.json({ error: userError.message }, { status: 401 });
+    }
 
-  if (leagueId) {
-    query = query.eq('league_id', leagueId);
+    if (!user) {
+      return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { matchId, fixtureId, homeScore, awayScore } = body;
+    const dbId = Number(fixtureId ?? matchId);
+
+    if (!dbId) {
+      return NextResponse.json({ error: 'Missing matchId' }, { status: 400 });
+    }
+
+    if (homeScore === undefined || awayScore === undefined) {
+      return NextResponse.json({ error: 'Missing scores' }, { status: 400 });
+    }
+
+    const { data: fixture, error: fixtureError } = await supabase
+      .from('fixtures')
+      .select('id, api_fixture_id')
+      .eq('id', dbId)
+      .single();
+
+    if (fixtureError || !fixture) {
+      return NextResponse.json({ error: 'Fixture not found' }, { status: 404 });
+    }
+
+    const { error } = await supabase.from('predictions').upsert(
+      {
+        user_id: user.id,
+        fixture_id: fixture.id,
+        match_id: fixture.api_fixture_id,
+        home_score: Number(homeScore),
+        away_score: Number(awayScore),
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id,fixture_id' },
+    );
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Failed to save prediction' },
+      { status: 500 },
+    );
   }
-
-  const { data, error } = await query;
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  const matches = (data || []).map((row) => ({
-    id: row.id,
-    home_team: row.home_team_name,
-    away_team: row.away_team_name,
-    home_logo: row.home_team_logo,
-    away_logo: row.away_team_logo,
-    utcDate: row.fixture_date,
-    status: row.status_short,
-    group_name: row.round,
-    league_id: row.league_id,
-    score: {
-      fullTime: { home: row.home_goals, away: row.away_goals },
-    },
-  }));
-
-  return NextResponse.json({ matches });
 }
