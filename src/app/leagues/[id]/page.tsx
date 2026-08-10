@@ -17,6 +17,10 @@ const VISIBLE_STATUSES = [
   "LIVE", "IN_PLAY", "1H", "2H", "HT", "PAUSED",
 ];
 
+const POINTS_EXACT = 5;
+const POINTS_GOAL_DIFF = 3;
+const POINTS_RESULT = 1;
+
 export default async function LeagueDetailPage({
   params,
 }: {
@@ -100,7 +104,6 @@ export default async function LeagueDetailPage({
 
   const fixtureIds = [...new Set((predictions || []).map((p: any) => p.match_id))];
 
-  // Fixtures: names, scores, api_fixture_id
   const { data: fixtures } = await supabase
     .from("fixtures")
     .select("id, api_fixture_id, home_team_name, away_team_name, home_score, away_score")
@@ -108,7 +111,6 @@ export default async function LeagueDetailPage({
 
   const fixturesById = new Map((fixtures || []).map((f: any) => [f.id, f]));
 
-  // Matches: match_date, status, plus scores as fallback
   const apiFixtureIds = [...new Set((fixtures || []).map((f: any) => f.api_fixture_id).filter(Boolean))];
 
   const { data: matches } = await supabase
@@ -124,7 +126,7 @@ export default async function LeagueDetailPage({
     const username = m.profiles?.username || "Unknown";
     const userPreds = (predictions || []).filter((p: any) => p.user_id === m.user_id);
 
-    let points = 0;
+    let totalPoints = 0;
     let exactScores = 0;
     let goalDiff = 0;
     let correctResult = 0;
@@ -144,35 +146,37 @@ export default async function LeagueDetailPage({
         const fixture = fixturesById.get(p.match_id);
         const match = matchesByApiId.get(fixture?.api_fixture_id);
 
-        // Scores: fixtures first, then matches, then prediction record
         const actH = fixture?.home_score ?? match?.home_score ?? p.actual_home_score;
         const actA = fixture?.away_score ?? match?.away_score ?? p.actual_away_score;
-
-        points += Number(p.points) || 0;
-
         const predH = p.home_score;
         const predA = p.away_score;
 
         let outcome = "";
+        let predPoints = 0;
 
         if (actH !== null && actH !== undefined && actA !== null && actA !== undefined) {
           if (predH === actH && predA === actA) {
             exactScores++;
             outcome = "Exact Score";
+            predPoints = POINTS_EXACT;
           } else if (predH - predA === actH - actA) {
             goalDiff++;
             outcome = "Correct Goal Difference";
+            predPoints = POINTS_GOAL_DIFF;
           } else {
             const predResult = predH > predA ? "H" : predH < predA ? "A" : "D";
             const actResult = actH > actA ? "H" : actH < actA ? "A" : "D";
             if (predResult === actResult) {
               correctResult++;
               outcome = "Correct Result";
+              predPoints = POINTS_RESULT;
             } else {
               outcome = "Incorrect";
             }
           }
         }
+
+        totalPoints += predPoints;
 
         return {
           matchId: p.match_id,
@@ -183,7 +187,7 @@ export default async function LeagueDetailPage({
           predictedAway: predA,
           actualHome: actH,
           actualAway: actA,
-          points: Number(p.points) || 0,
+          points: predPoints,
           outcome,
         };
       })
@@ -195,7 +199,7 @@ export default async function LeagueDetailPage({
     return {
       userId: m.user_id,
       username,
-      points,
+      points: totalPoints,
       exactScores,
       goalDiff,
       correctResult,
