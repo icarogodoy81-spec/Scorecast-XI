@@ -100,15 +100,15 @@ export default async function LeagueDetailPage({
 
   const fixtureIds = [...new Set((predictions || []).map((p: any) => p.match_id))];
 
-  // Step 1: get fixtures (maps predictions.match_id → api_fixture_id + team names)
+  // Get fixtures with scores — this is the primary score source
   const { data: fixtures } = await supabase
     .from("fixtures")
-    .select("id, api_fixture_id, home_team_name, away_team_name")
+    .select("id, api_fixture_id, home_team_name, away_team_name, home_score, away_score, match_date, status")
     .in("id", fixtureIds);
 
   const fixturesById = new Map((fixtures || []).map((f: any) => [f.id, f]));
 
-  // Step 2: get matches using api_fixture_id from fixtures
+  // Fallback: get matches for any fixture missing scores
   const apiFixtureIds = [...new Set((fixtures || []).map((f: any) => f.api_fixture_id).filter(Boolean))];
 
   const { data: matches } = await supabase
@@ -133,43 +133,43 @@ export default async function LeagueDetailPage({
       .filter((p: any) => {
         const fixture = fixturesById.get(p.match_id);
         if (!fixture) return false;
-        const apiId = fixture.api_fixture_id;
-        const match = matchesByApiId.get(apiId);
-        if (!match) return false;
-        const kickoff = match.match_date ? new Date(match.match_date) : null;
-        const statusUpper = (match.status || "").toUpperCase();
-        const hasScores = match.home_score !== null && match.home_score !== undefined && match.away_score !== null && match.away_score !== undefined;
+        const kickoff = fixture.match_date ? new Date(fixture.match_date) : null;
+        const statusUpper = (fixture.status || "").toUpperCase();
+        const hasScores = fixture.home_score !== null && fixture.home_score !== undefined && fixture.away_score !== null && fixture.away_score !== undefined;
         const started = (kickoff && kickoff <= now) || VISIBLE_STATUSES.includes(statusUpper) || hasScores;
         return started;
       })
       .map((p: any) => {
         const fixture = fixturesById.get(p.match_id);
-        const apiId = fixture?.api_fixture_id;
-        const match = matchesByApiId.get(apiId);
+        const match = matchesByApiId.get(fixture?.api_fixture_id);
+
+        // Scores from fixtures first, fall back to matches, then prediction record
+        const actH = fixture?.home_score ?? match?.home_score ?? p.actual_home_score;
+        const actA = fixture?.away_score ?? match?.away_score ?? p.actual_away_score;
 
         points += Number(p.points) || 0;
 
         const predH = p.home_score;
         const predA = p.away_score;
-        const actH = match?.home_score ?? p.actual_home_score;
-        const actA = match?.away_score ?? p.actual_away_score;
 
         let outcome = "";
 
-        if (predH === actH && predA === actA) {
-          exactScores++;
-          outcome = "Exact Score";
-        } else if (predH - predA === actH - actA) {
-          goalDiff++;
-          outcome = "Correct Goal Difference";
-        } else {
-          const predResult = predH > predA ? "H" : predH < predA ? "A" : "D";
-          const actResult = actH > actA ? "H" : actH < actA ? "A" : "D";
-          if (predResult === actResult) {
-            correctResult++;
-            outcome = "Correct Result";
+        if (actH !== null && actH !== undefined && actA !== null && actA !== undefined) {
+          if (predH === actH && predA === actA) {
+            exactScores++;
+            outcome = "Exact Score";
+          } else if (predH - predA === actH - actA) {
+            goalDiff++;
+            outcome = "Correct Goal Difference";
           } else {
-            outcome = "Incorrect";
+            const predResult = predH > predA ? "H" : predH < predA ? "A" : "D";
+            const actResult = actH > actA ? "H" : actH < actA ? "A" : "D";
+            if (predResult === actResult) {
+              correctResult++;
+              outcome = "Correct Result";
+            } else {
+              outcome = "Incorrect";
+            }
           }
         }
 
@@ -177,7 +177,7 @@ export default async function LeagueDetailPage({
           matchId: p.match_id,
           homeTeam: fixture?.home_team_name || match?.home_team || "?",
           awayTeam: fixture?.away_team_name || match?.away_team || "?",
-          matchDate: match?.match_date,
+          matchDate: fixture?.match_date || match?.match_date,
           predictedHome: predH,
           predictedAway: predA,
           actualHome: actH,
