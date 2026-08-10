@@ -100,15 +100,15 @@ export default async function LeagueDetailPage({
 
   const fixtureIds = [...new Set((predictions || []).map((p: any) => p.match_id))];
 
-  // Get fixtures with scores — this is the primary score source
+  // Fixtures: names, scores, api_fixture_id
   const { data: fixtures } = await supabase
     .from("fixtures")
-    .select("id, api_fixture_id, home_team_name, away_team_name, home_score, away_score, match_date, status")
+    .select("id, api_fixture_id, home_team_name, away_team_name, home_score, away_score")
     .in("id", fixtureIds);
 
   const fixturesById = new Map((fixtures || []).map((f: any) => [f.id, f]));
 
-  // Fallback: get matches for any fixture missing scores
+  // Matches: match_date, status, plus scores as fallback
   const apiFixtureIds = [...new Set((fixtures || []).map((f: any) => f.api_fixture_id).filter(Boolean))];
 
   const { data: matches } = await supabase
@@ -133,8 +133,9 @@ export default async function LeagueDetailPage({
       .filter((p: any) => {
         const fixture = fixturesById.get(p.match_id);
         if (!fixture) return false;
-        const kickoff = fixture.match_date ? new Date(fixture.match_date) : null;
-        const statusUpper = (fixture.status || "").toUpperCase();
+        const match = matchesByApiId.get(fixture.api_fixture_id);
+        const kickoff = match?.match_date ? new Date(match.match_date) : null;
+        const statusUpper = (match?.status || "").toUpperCase();
         const hasScores = fixture.home_score !== null && fixture.home_score !== undefined && fixture.away_score !== null && fixture.away_score !== undefined;
         const started = (kickoff && kickoff <= now) || VISIBLE_STATUSES.includes(statusUpper) || hasScores;
         return started;
@@ -143,7 +144,7 @@ export default async function LeagueDetailPage({
         const fixture = fixturesById.get(p.match_id);
         const match = matchesByApiId.get(fixture?.api_fixture_id);
 
-        // Scores from fixtures first, fall back to matches, then prediction record
+        // Scores: fixtures first, then matches, then prediction record
         const actH = fixture?.home_score ?? match?.home_score ?? p.actual_home_score;
         const actA = fixture?.away_score ?? match?.away_score ?? p.actual_away_score;
 
@@ -177,7 +178,7 @@ export default async function LeagueDetailPage({
           matchId: p.match_id,
           homeTeam: fixture?.home_team_name || match?.home_team || "?",
           awayTeam: fixture?.away_team_name || match?.away_team || "?",
-          matchDate: fixture?.match_date || match?.match_date,
+          matchDate: match?.match_date,
           predictedHome: predH,
           predictedAway: predA,
           actualHome: actH,
