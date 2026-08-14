@@ -17,9 +17,9 @@ const VISIBLE_STATUSES = [
   "LIVE", "IN_PLAY", "1H", "2H", "HT", "PAUSED",
 ];
 
-const POINTS_EXACT = 5;
+const POINTS_EXACT = 4;
 const POINTS_GOAL_DIFF = 3;
-const POINTS_RESULT = 1;
+const POINTS_RESULT = 2;
 
 export default async function LeagueDetailPage({
   params,
