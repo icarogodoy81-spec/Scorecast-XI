@@ -42,6 +42,10 @@ export async function GET() {
   try {
     let total = 0;
 
+    const now = new Date();
+    const dateFrom = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const dateTo = new Date(now.getTime() + 300 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
     for (const competition of COMPETITIONS) {
       // 1. Get this competition's current season
       const compRes = await fetch(
@@ -64,9 +68,9 @@ export async function GET() {
         continue;
       }
 
-      // 2. Get that season's matches
+      // 2. Get that season's matches (date window instead of season filter)
       const res = await fetch(
-        `${FOOTBALL_BASE_URL}/competitions/${competition.code}/matches?season=${seasonId}`,
+        `${FOOTBALL_BASE_URL}/competitions/${competition.code}/matches?dateFrom=${dateFrom}&dateTo=${dateTo}`,
         { headers: { 'X-Auth-Token': FOOTBALL_API_KEY } }
       );
 
