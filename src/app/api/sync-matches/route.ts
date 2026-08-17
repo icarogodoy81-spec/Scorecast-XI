@@ -7,8 +7,6 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const FOOTBALL_API_KEY = process.env.FOOTBALL_DATA_API_KEY;
 const FOOTBALL_BASE_URL = process.env.FOOTBALL_DATA_BASE_URL || 'https://api.football-data.org/v4';
 
-const SEASON = 2026;
-
 type ApiMatch = {
   id: number;
   utcDate: string;
@@ -33,19 +31,49 @@ export async function GET() {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
+  const report: Array<{
+    code: string;
+    name: string;
+    season: number | string | null;
+    status: number | string | null;
+    matches: number;
+  }> = [];
+
   try {
     let total = 0;
 
-    for (let i = 0; i < COMPETITIONS.length; i++) {
-      const competition = COMPETITIONS[i];
-
-      const res = await fetch(
-        `${FOOTBALL_BASE_URL}/competitions/${competition.code}/matches?season=${SEASON}`,
+    for (const competition of COMPETITIONS) {
+      // 1. Get this competition's current season
+      const compRes = await fetch(
+        `${FOOTBALL_BASE_URL}/competitions/${competition.code}`,
         { headers: { 'X-Auth-Token': FOOTBALL_API_KEY } }
       );
 
+      await new Promise((r) => setTimeout(r, 7000)); // stay under 10 calls/min
+
+      if (!compRes.ok) {
+        report.push({ code: competition.code, name: competition.name, season: null, status: compRes.status, matches: 0 });
+        continue;
+      }
+
+      const compJson = await compRes.json();
+      const seasonId: number | null = compJson.currentSeason?.id ?? null;
+
+      if (!seasonId) {
+        report.push({ code: competition.code, name: competition.name, season: null, status: 'no-current-season', matches: 0 });
+        continue;
+      }
+
+      // 2. Get that season's matches
+      const res = await fetch(
+        `${FOOTBALL_BASE_URL}/competitions/${competition.code}/matches?season=${seasonId}`,
+        { headers: { 'X-Auth-Token': FOOTBALL_API_KEY } }
+      );
+
+      await new Promise((r) => setTimeout(r, 7000));
+
       if (!res.ok) {
-        console.warn(`Skipping ${competition.code}: football-data.org returned ${res.status}`);
+        report.push({ code: competition.code, name: competition.name, season: seasonId, status: res.status, matches: 0 });
         continue;
       }
 
@@ -56,7 +84,7 @@ export async function GET() {
         api_fixture_id: m.id,
         fixture_id: m.id,
         league_id: competition.id,
-        season: SEASON,
+        season: seasonId,
         round: m.matchday ? `Round ${m.matchday}` : null,
         home_team_id: m.homeTeam.id,
         home_team_name: m.homeTeam.name,
@@ -87,17 +115,14 @@ export async function GET() {
         total += rows.length;
       }
 
-      // Free tier: 10 requests/minute.
-      if (i < COMPETITIONS.length - 1) {
-        await new Promise((resolve) => setTimeout(resolve, 7000));
-      }
+      report.push({ code: competition.code, name: competition.name, season: seasonId, status: res.status, matches: rows.length });
     }
 
-    return NextResponse.json({ success: true, count: total });
+    return NextResponse.json({ success: true, count: total, report });
   } catch (error) {
     console.error('Sync matches error:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to sync matches' },
+      { error: error instanceof Error ? error.message : 'Failed to sync matches', report },
       { status: 500 }
     );
   }

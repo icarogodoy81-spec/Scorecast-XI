@@ -51,7 +51,6 @@ const CLUB_COLOURS: Record<string, TeamMeta> = {
   cruzeiro: { primary: '#0033a0', secondary: '#ffffff', shortName: 'CRU' },
   atletico: { primary: '#111111', secondary: '#ffffff', shortName: 'CAM' },
   'atlético mineiro': { primary: '#111111', secondary: '#ffffff', shortName: 'CAM' },
-  'atletico mineiro': { primary: '#111111', secondary: '#ffffff', shortName: 'CAM' },
   bahia: { primary: '#005bbb', secondary: '#d71920', shortName: 'BAH' },
   fortaleza: { primary: '#0057b8', secondary: '#d71920', shortName: 'FOR' },
   ceara: { primary: '#111111', secondary: '#ffffff', shortName: 'CEA' },
@@ -138,10 +137,10 @@ function getInitials(name: string) {
 
 function getFixtureId(fixture: Fixture) {
   return (
-    fixture.id ||
     fixture.api_fixture_id ||
     fixture.fixture_id ||
     fixture.fixture?.id ||
+    fixture.id ||
     fixture.fixture?.fixture_id
   );
 }
@@ -370,7 +369,10 @@ export default function PredictionsPage() {
         const upcomingOnly = Array.isArray(items)
           ? items.filter((fixture) => {
               const status = String(getStatus(fixture)).toUpperCase();
-              return !['FT', 'FINISHED', 'AET', 'PEN'].includes(status);
+              return ![
+                'FT', 'FINISHED', 'AET', 'PEN',
+                'PST', 'POSTPONED', 'CANCELLED', 'CANCELED', 'SUSPENDED',
+              ].includes(status);
             })
           : [];
 
@@ -489,236 +491,208 @@ export default function PredictionsPage() {
 
   const topBar = (
     <>
-      <header className="top-header" style={{ display: 'flex', justifyContent: 'center' }}>
-        <div className="brand" style={{ textAlign: 'center' }}>
-          <Image
-            src="/images/logo.png"
-            alt="Scorecast XI"
-            width={443}
-            height={319}
-            className="logo"
-            priority
-            style={{ width: '160px', height: 'auto', margin: '0 auto' }}
-          />
+      <header
+        className="fixtures-header"
+        style={{
+          ...headerStyle,
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '16px',
+        }}
+      >
+        <div>
+          <p className="eyebrow" style={{ color: '#93c5fd' }}></p>
+          <h1 style={{ color: THEME.text }}>Make your predictions</h1>
+          <p style={{ color: THEME.mutedText }}>{fixtures.length} fixtures available</p>
+        </div>
+
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '6px',
+            minWidth: '200px',
+          }}
+        >
+          <label
+            htmlFor="league-select"
+            style={{ fontSize: 12, color: '#93c5fd', fontWeight: 600, letterSpacing: '0.03em' }}
+          >
+            League
+          </label>
+          <select
+            id="league-select"
+            value={selectedLeagueId}
+            onChange={(e) => {
+              const id = Number(e.target.value);
+              setSelectedLeagueId(id);
+              window.localStorage.setItem('selectedLeagueId', String(id));
+            }}
+            style={{
+              width: '100%',
+              background: THEME.inputBg,
+              color: THEME.text,
+              border: `1px solid ${THEME.border}`,
+              borderRadius: 8,
+              padding: '10px 12px',
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: 'pointer',
+              outline: 'none',
+            }}
+          >
+            {COMPETITIONS.map((c) => (
+              <option key={c.code} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
         </div>
       </header>
 
-      <nav className="nav">
-        <Link href="/dashboard">Dashboard</Link>
-        <Link href="/predictions" className="active">Make predictions</Link>
-        <Link href="/leaderboard">Leaderboard</Link>
-        <Link href="/profile">Profile</Link>
-        <Link href="/leagues">Leagues</Link>
-      </nav>
+      <section className="fixtures-groups">
+        {Object.entries(groupedFixtures).map(([dateLabel, items]) => (
+          <div key={dateLabel} className="fixture-date-group" style={dateGroupStyle}>
+            <h2 style={{ color: THEME.text }}>{dateLabel}</h2>
+
+            <div className="fixtures-grid">
+              {items.map((fixture) => {
+                const fixtureId = String(getFixtureId(fixture));
+                const homeName = getHomeName(fixture);
+                const awayName = getAwayName(fixture);
+                const homeLogo = getHomeLogo(fixture);
+                const awayLogo = getAwayLogo(fixture);
+                const kickoff = getKickoff(fixture);
+                const status = getStatus(fixture);
+                const locked = isLocked(fixture);
+                const homeScore = getHomeScore(fixture);
+                const awayScore = getAwayScore(fixture);
+                const homeMeta = getTeamMeta(homeName);
+                const awayMeta = getTeamMeta(awayName);
+
+                const prediction = predictions[fixtureId] || { home: '', away: '' };
+                const saved = savedPredictions[fixtureId];
+                const isSaving = savingId === fixtureId;
+                const errorMsg = saveError[fixtureId];
+
+                const cardStyle: CSSProperties = {
+                  background: `linear-gradient(135deg, ${THEME.darkBlue}, ${THEME.darkBlue2})`,
+                  borderColor: THEME.border,
+                  color: THEME.text,
+                  boxShadow: '0 18px 40px rgba(0, 0, 0, 0.35)',
+                };
+
+                const inputStyle: CSSProperties = {
+                  background: THEME.inputBg,
+                  borderColor: THEME.border,
+                  color: THEME.text,
+                };
+
+                return (
+                  <article key={fixtureId} className="prediction-card" style={cardStyle}>
+                    <div className="card-top">
+                      <span style={{ color: THEME.text, fontWeight: 700 }}>{formatDate(kickoff)}</span>
+
+                      <span
+                        className={locked ? 'status locked' : 'status'}
+                        style={{
+                          background: locked ? 'rgba(239, 68, 68, 0.18)' : 'rgba(34, 197, 94, 0.18)',
+                          borderColor: locked ? 'rgba(239, 68, 68, 0.45)' : 'rgba(34, 197, 94, 0.45)',
+                          color: locked ? '#fecaca' : '#bbf7d0',
+                        }}
+                      >
+                        {locked ? status || 'Locked' : 'Open'}
+                      </span>
+                    </div>
+
+                    <div className="teams-row">
+                      <div className="team team-home" style={{ color: THEME.text }}>
+                        <TeamBadge name={homeName} logo={homeLogo} meta={homeMeta} />
+                        <strong style={{ color: THEME.text }}>{homeName}</strong>
+                      </div>
+
+                      <div className="score-area">
+                        {locked && homeScore !== null && awayScore !== null ? (
+                          <div
+                            className="final-score"
+                            style={{ background: THEME.inputBg, borderColor: THEME.border, color: THEME.text }}
+                          >
+                            <span>{homeScore}</span>
+                            <small style={{ color: THEME.mutedText }}>-</small>
+                            <span>{awayScore}</span>
+                          </div>
+                        ) : (
+                          <div className="prediction-inputs">
+                            <input
+                              value={prediction.home}
+                              onChange={(e) => updatePrediction(fixtureId, 'home', e.target.value)}
+                              disabled={locked}
+                              inputMode="numeric"
+                              placeholder="0"
+                              style={inputStyle}
+                            />
+                            <span style={{ color: THEME.text }}>-</span>
+                            <input
+                              value={prediction.away}
+                              onChange={(e) => updatePrediction(fixtureId, 'away', e.target.value)}
+                              disabled={locked}
+                              inputMode="numeric"
+                              placeholder="0"
+                              style={inputStyle}
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="team team-away" style={{ color: THEME.text }}>
+                        <TeamBadge name={awayName} logo={awayLogo} meta={awayMeta} />
+                        <strong style={{ color: THEME.text }}>{awayName}</strong>
+                      </div>
+                    </div>
+
+                    <button
+                      className="save-button"
+                      disabled={locked || !prediction.home || !prediction.away || isSaving}
+                      onClick={() => savePrediction(fixture)}
+                      style={
+                        saved
+                          ? { background: THEME.green, borderColor: THEME.green, color: '#ffffff' }
+                          : {
+                              background:
+                                locked || !prediction.home || !prediction.away ? '#334155' : THEME.button,
+                              borderColor:
+                                locked || !prediction.home || !prediction.away ? '#475569' : THEME.button,
+                              color: THEME.text,
+                            }
+                      }
+                    >
+                      {locked
+                        ? 'Prediction closed'
+                        : isSaving
+                        ? 'Saving...'
+                        : saved
+                        ? 'Prediction saved'
+                        : 'Save prediction'}
+                    </button>
+
+                    {errorMsg ? (
+                      <p style={{ color: '#fecaca', fontSize: 13, marginTop: 6 }}>{errorMsg}</p>
+                    ) : null}
+                  </article>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </section>
     </>
   );
 
-  if (loading) {
-    return (
-      <main className="fixtures-page" style={pageStyle}>
-        {topBar}
-        <div className="fixtures-shell" style={shellStyle}>
-          <p className="loading-text" style={{ color: THEME.text }}>
-            Loading fixtures...
-          </p>
-        </div>
-      </main>
-    );
-  }
-
-  if (error) {
-    return (
-      <main className="fixtures-page" style={pageStyle}>
-        {topBar}
-        <div className="fixtures-shell" style={shellStyle}>
-          <p className="error-text" style={{ color: '#fecaca' }}>
-            {error}
-          </p>
-        </div>
-      </main>
-    );
-  }
-
   return (
-    <main className="fixtures-page" style={pageStyle}>
-      {topBar}
-      <div className="fixtures-shell" style={shellStyle}>
-        <header className="fixtures-header" style={headerStyle}>
-          <div>
-            <p className="eyebrow" style={{ color: '#93c5fd' }}>
-            </p>
-            <h1 style={{ color: THEME.text }}>Make your predictions</h1>
-            <p style={{ color: THEME.mutedText }}>{fixtures.length} fixtures available</p>
-          </div>
-
-          <div className="league-badge" style={{ background: THEME.darkBlue, borderColor: '#60a5fa', color: THEME.text }}>
-            <label htmlFor="league-select" style={{ fontSize: 12, color: '#93c5fd', marginRight: 8 }}>
-              League
-            </label>
-            <select
-              id="league-select"
-              value={selectedLeagueId}
-              onChange={(e) => {
-                const id = Number(e.target.value);
-                setSelectedLeagueId(id);
-                window.localStorage.setItem('selectedLeagueId', String(id));
-              }}
-              style={{
-                background: THEME.inputBg,
-                color: THEME.text,
-                border: `1px solid ${THEME.border}`,
-                borderRadius: 8,
-                padding: '8px 10px',
-                fontSize: 14,
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              {COMPETITIONS.map((c) => (
-                <option key={c.code} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </header>
-
-        <section className="fixtures-groups">
-          {Object.entries(groupedFixtures).map(([dateLabel, items]) => (
-            <div key={dateLabel} className="fixture-date-group" style={dateGroupStyle}>
-              <h2 style={{ color: THEME.text }}>{dateLabel}</h2>
-
-              <div className="fixtures-grid">
-                {items.map((fixture) => {
-                  const fixtureId = String(getFixtureId(fixture));
-                  const homeName = getHomeName(fixture);
-                  const awayName = getAwayName(fixture);
-                  const homeLogo = getHomeLogo(fixture);
-                  const awayLogo = getAwayLogo(fixture);
-                  const kickoff = getKickoff(fixture);
-                  const status = getStatus(fixture);
-                  const locked = isLocked(fixture);
-                  const homeScore = getHomeScore(fixture);
-                  const awayScore = getAwayScore(fixture);
-                  const homeMeta = getTeamMeta(homeName);
-                  const awayMeta = getTeamMeta(awayName);
-
-                  const prediction = predictions[fixtureId] || { home: '', away: '' };
-                  const saved = savedPredictions[fixtureId];
-                  const isSaving = savingId === fixtureId;
-                  const errorMsg = saveError[fixtureId];
-
-                  const cardStyle: CSSProperties = {
-                    background: `linear-gradient(135deg, ${THEME.darkBlue}, ${THEME.darkBlue2})`,
-                    borderColor: THEME.border,
-                    color: THEME.text,
-                    boxShadow: '0 18px 40px rgba(0, 0, 0, 0.35)',
-                  };
-
-                  const inputStyle: CSSProperties = {
-                    background: THEME.inputBg,
-                    borderColor: THEME.border,
-                    color: THEME.text,
-                  };
-
-                  return (
-                    <article key={fixtureId} className="prediction-card" style={cardStyle}>
-                      <div className="card-top">
-                        <span style={{ color: THEME.text, fontWeight: 700 }}>{formatDate(kickoff)}</span>
-
-                        <span
-                          className={locked ? 'status locked' : 'status'}
-                          style={{
-                            background: locked ? 'rgba(239, 68, 68, 0.18)' : 'rgba(34, 197, 94, 0.18)',
-                            borderColor: locked ? 'rgba(239, 68, 68, 0.45)' : 'rgba(34, 197, 94, 0.45)',
-                            color: locked ? '#fecaca' : '#bbf7d0',
-                          }}
-                        >
-                          {locked ? status || 'Locked' : 'Open'}
-                        </span>
-                      </div>
-
-                      <div className="teams-row">
-                        <div className="team team-home" style={{ color: THEME.text }}>
-                          <TeamBadge name={homeName} logo={homeLogo} meta={homeMeta} />
-                          <strong style={{ color: THEME.text }}>{homeName}</strong>
-                        </div>
-
-                        <div className="score-area">
-                          {locked && homeScore !== null && awayScore !== null ? (
-                            <div
-                              className="final-score"
-                              style={{ background: THEME.inputBg, borderColor: THEME.border, color: THEME.text }}
-                            >
-                              <span>{homeScore}</span>
-                              <small style={{ color: THEME.mutedText }}>-</small>
-                              <span>{awayScore}</span>
-                            </div>
-                          ) : (
-                            <div className="prediction-inputs">
-                              <input
-                                value={prediction.home}
-                                onChange={(e) => updatePrediction(fixtureId, 'home', e.target.value)}
-                                disabled={locked}
-                                inputMode="numeric"
-                                placeholder="0"
-                                style={inputStyle}
-                              />
-                              <span style={{ color: THEME.text }}>-</span>
-                              <input
-                                value={prediction.away}
-                                onChange={(e) => updatePrediction(fixtureId, 'away', e.target.value)}
-                                disabled={locked}
-                                inputMode="numeric"
-                                placeholder="0"
-                                style={inputStyle}
-                              />
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="team team-away" style={{ color: THEME.text }}>
-                          <TeamBadge name={awayName} logo={awayLogo} meta={awayMeta} />
-                          <strong style={{ color: THEME.text }}>{awayName}</strong>
-                        </div>
-                      </div>
-
-                      <button
-                        className="save-button"
-                        disabled={locked || !prediction.home || !prediction.away || isSaving}
-                        onClick={() => savePrediction(fixture)}
-                        style={
-                          saved
-                            ? { background: THEME.green, borderColor: THEME.green, color: '#ffffff' }
-                            : {
-                                background:
-                                  locked || !prediction.home || !prediction.away ? '#334155' : THEME.button,
-                                borderColor:
-                                  locked || !prediction.home || !prediction.away ? '#475569' : THEME.button,
-                                color: THEME.text,
-                              }
-                        }
-                      >
-                        {locked
-                          ? 'Prediction closed'
-                          : isSaving
-                          ? 'Saving...'
-                          : saved
-                          ? 'Prediction saved'
-                          : 'Save prediction'}
-                      </button>
-
-                      {errorMsg ? (
-                        <p style={{ color: '#fecaca', fontSize: 13, marginTop: 6 }}>{errorMsg}</p>
-                      ) : null}
-                    </article>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </section>
-      </div>
+    <main style={shellStyle}>
+      <div style={pageStyle}>{topBar}</div>
     </main>
   );
 }
