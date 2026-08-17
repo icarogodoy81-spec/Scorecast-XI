@@ -222,6 +222,18 @@ export default async function LeagueDetailPage({
                 {league.invite_code}
               </span>
             </p>
+
+            <Link
+              href={
+                league.competition_code
+                  ? `/predictions?competition_code=${league.competition_code}`
+                  : "/predictions"
+              }
+              className="inline-block mt-4 px-5 py-2.5 rounded-lg font-semibold text-sm"
+              style={{ background: THEME.green, color: "#0f172a" }}
+            >
+              Make predictions
+            </Link>
           </div>
 
           <LeagueStandings standings={standings} currentUserId={user.id} />

@@ -7,6 +7,7 @@ export async function createLeague(formData: {
   name: string;
   description?: string;
   is_public?: boolean;
+  competition_code?: string;
 }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -25,6 +26,7 @@ export async function createLeague(formData: {
       invite_code: inviteCode,
       is_public: formData.is_public ?? false,
       max_members: 20,
+      competition_code: formData.competition_code || null,
     })
     .select()
     .single();

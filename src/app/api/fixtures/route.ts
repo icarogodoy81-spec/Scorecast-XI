@@ -9,9 +9,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Missing Supabase server env variables' }, { status: 500 });
   }
 
-const { searchParams } = new URL(req.url);
-const leagueId = searchParams.get('league_id');
-
+  const { searchParams } = new URL(req.url);
+  const leagueId = searchParams.get('league_id');
+  const competitionCode = searchParams.get('competition_code');
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -20,13 +20,15 @@ const leagueId = searchParams.get('league_id');
   let query = supabase
     .from('fixtures')
     .select(
-      'id, home_team_name, away_team_name, home_team_logo, away_team_logo, fixture_date, status_short, round, home_goals, away_goals, league_id, api_fixture_id'
+      'id, league_id, round, competition_code, home_team_name, away_team_name, home_team_logo, away_team_logo, date, status, home_score, away_score'
     )
-    .order('fixture_date', { ascending: true });
+    .order('date', { ascending: true });
 
- if (leagueId) {
-  query = query.eq('league_id', Number(leagueId));
-}
+  if (competitionCode) {
+    query = query.eq('competition_code', competitionCode.toUpperCase());
+  } else if (leagueId) {
+    query = query.eq('league_id', Number(leagueId));
+  }
 
   const { data, error } = await query;
 
@@ -36,17 +38,18 @@ const leagueId = searchParams.get('league_id');
 
   const matches = (data || []).map((row) => ({
     id: row.id,
-    api_fixture_id: row.api_fixture_id,
+    api_fixture_id: row.id,
     home_team: row.home_team_name,
     away_team: row.away_team_name,
     home_logo: row.home_team_logo,
     away_logo: row.away_team_logo,
-    utcDate: row.fixture_date,
-    status: row.status_short,
+    utcDate: row.date,
+    status: row.status,
     group_name: row.round,
     league_id: row.league_id,
+    competition_code: row.competition_code,
     score: {
-      fullTime: { home: row.home_goals, away: row.away_goals },
+      fullTime: { home: row.home_score, away: row.away_score },
     },
   }));
 

@@ -304,6 +304,11 @@ function isLocked(fixture: Fixture) {
   return new Date(kickoff).getTime() <= Date.now();
 }
 
+function getQueryParam(name: string) {
+  if (typeof window === 'undefined') return null;
+  return new URLSearchParams(window.location.search).get(name);
+}
+
 function TeamBadge({ name, logo, meta }: { name: string; logo: string | null; meta: TeamMeta }) {
   const [logoFailed, setLogoFailed] = useState(false);
   const badgeBorderColour = getGradientColour(meta);
@@ -330,6 +335,7 @@ function TeamBadge({ name, logo, meta }: { name: string; logo: string | null; me
 }
 
 export default function PredictionsPage() {
+  const [urlCompetitionCode] = useState<string | null>(() => getQueryParam('competition_code'));
   const [fixtures, setFixtures] = useState<Fixture[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -337,10 +343,9 @@ export default function PredictionsPage() {
   const [savedPredictions, setSavedPredictions] = useState<Record<string, boolean>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<Record<string, string>>({});
-  const [selectedLeagueId, setSelectedLeagueId] = useState<number>(() => {
-    if (typeof window === 'undefined') return 2013;
-    const saved = Number(window.localStorage.getItem('selectedLeagueId'));
-    return saved || 2013;
+  const [selectedCompetitionCode, setSelectedCompetitionCode] = useState<string>(() => {
+    if (typeof window === 'undefined') return 'BSA';
+    return window.localStorage.getItem('selectedCompetitionCode') || 'BSA';
   });
 
   useEffect(() => {
@@ -348,8 +353,12 @@ export default function PredictionsPage() {
       setLoading(true);
       setError('');
       try {
+        const fixturesUrl = urlCompetitionCode
+          ? `/api/fixtures?competition_code=${urlCompetitionCode}`
+          : `/api/fixtures?competition_code=${selectedCompetitionCode}`;
+
         const [fixturesRes, predictionsRes] = await Promise.all([
-          fetch(`/api/fixtures?league_id=${selectedLeagueId}`, { cache: 'no-store' }),
+          fetch(fixturesUrl, { cache: 'no-store' }),
           fetch('/api/predictions', { cache: 'no-store' }),
         ]);
 
@@ -403,7 +412,7 @@ export default function PredictionsPage() {
     }
 
     loadData();
-  }, [selectedLeagueId]);
+  }, [selectedCompetitionCode, urlCompetitionCode]);
 
   const groupedFixtures = useMemo(() => {
     return fixtures.reduce<Record<string, Fixture[]>>((groups, fixture) => {
@@ -522,33 +531,50 @@ export default function PredictionsPage() {
           >
             League
           </label>
-          <select
-            id="league-select"
-            value={selectedLeagueId}
-            onChange={(e) => {
-              const id = Number(e.target.value);
-              setSelectedLeagueId(id);
-              window.localStorage.setItem('selectedLeagueId', String(id));
-            }}
-            style={{
-              width: '100%',
-              background: THEME.inputBg,
-              color: THEME.text,
-              border: `1px solid ${THEME.border}`,
-              borderRadius: 8,
-              padding: '10px 12px',
-              fontSize: 14,
-              fontWeight: 600,
-              cursor: 'pointer',
-              outline: 'none',
-            }}
-          >
-            {COMPETITIONS.map((c) => (
-              <option key={c.code} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+          {urlCompetitionCode ? (
+            <div
+              style={{
+                width: '100%',
+                background: THEME.inputBg,
+                color: THEME.text,
+                border: `1px solid ${THEME.border}`,
+                borderRadius: 8,
+                padding: '10px 12px',
+                fontSize: 14,
+                fontWeight: 700,
+              }}
+            >
+              {COMPETITIONS.find((c) => c.code === urlCompetitionCode)?.name || urlCompetitionCode}
+            </div>
+          ) : (
+            <select
+              id="league-select"
+              value={selectedCompetitionCode}
+              onChange={(e) => {
+                const code = e.target.value;
+                setSelectedCompetitionCode(code);
+                window.localStorage.setItem('selectedCompetitionCode', code);
+              }}
+              style={{
+                width: '100%',
+                background: THEME.inputBg,
+                color: THEME.text,
+                border: `1px solid ${THEME.border}`,
+                borderRadius: 8,
+                padding: '10px 12px',
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: 'pointer',
+                outline: 'none',
+              }}
+            >
+              {COMPETITIONS.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
       </header>
 

@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { createLeague } from "@/app/actions/leagues";
 import { useRouter } from "next/navigation";
+import { COMPETITIONS } from "@/lib/competitions";
 
 export default function CreateLeaguePage() {
   const [name, setName] = useState("");
+  const [competitionCode, setCompetitionCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
@@ -15,7 +17,16 @@ export default function CreateLeaguePage() {
     setLoading(true);
     setError("");
 
-    const result = await createLeague({ name: name.trim() });
+    if (!competitionCode) {
+      setError("Please select a tournament.");
+      setLoading(false);
+      return;
+    }
+
+    const result = await createLeague({
+      name: name.trim(),
+      competition_code: competitionCode,
+    });
 
     if (result.error) {
       setError(result.error);
@@ -59,6 +70,26 @@ export default function CreateLeaguePage() {
               style={inputStyle}
               className="w-full rounded-lg px-3 py-2 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-green-500"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">
+              Tournament
+            </label>
+            <select
+              value={competitionCode}
+              onChange={(e) => setCompetitionCode(e.target.value)}
+              required
+              style={inputStyle}
+              className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+            >
+              <option value="">Select a tournament</option>
+              {COMPETITIONS.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           <button
