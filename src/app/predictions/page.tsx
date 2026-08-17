@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { CSSProperties, useEffect, useMemo, useState } from 'react';
 import '../fixtures/fixtures.css';
+import { COMPETITIONS } from '@/lib/competitions';
 
 type Fixture = any;
 
@@ -144,7 +145,6 @@ function getFixtureId(fixture: Fixture) {
     fixture.fixture?.fixture_id
   );
 }
-
 
 function getHomeName(fixture: Fixture) {
   return (
@@ -338,12 +338,19 @@ export default function PredictionsPage() {
   const [savedPredictions, setSavedPredictions] = useState<Record<string, boolean>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<Record<string, string>>({});
+  const [selectedLeagueId, setSelectedLeagueId] = useState<number>(() => {
+    if (typeof window === 'undefined') return 2013;
+    const saved = Number(window.localStorage.getItem('selectedLeagueId'));
+    return saved || 2013;
+  });
 
   useEffect(() => {
     async function loadData() {
+      setLoading(true);
+      setError('');
       try {
         const [fixturesRes, predictionsRes] = await Promise.all([
-          fetch('/api/fixtures', { cache: 'no-store' }),
+          fetch(`/api/fixtures?league_id=${selectedLeagueId}`, { cache: 'no-store' }),
           fetch('/api/predictions', { cache: 'no-store' }),
         ]);
 
@@ -368,7 +375,6 @@ export default function PredictionsPage() {
           : [];
 
         setFixtures(upcomingOnly);
-
 
         if (predictionsRes.ok) {
           const predictionsData = await predictionsRes.json();
@@ -395,7 +401,7 @@ export default function PredictionsPage() {
     }
 
     loadData();
-  }, []);
+  }, [selectedLeagueId]);
 
   const groupedFixtures = useMemo(() => {
     return fixtures.reduce<Record<string, Fixture[]>>((groups, fixture) => {
@@ -497,7 +503,6 @@ export default function PredictionsPage() {
         </div>
       </header>
 
-
       <nav className="nav">
         <Link href="/dashboard">Dashboard</Link>
         <Link href="/predictions" className="active">Make predictions</Link>
@@ -547,7 +552,34 @@ export default function PredictionsPage() {
           </div>
 
           <div className="league-badge" style={{ background: THEME.darkBlue, borderColor: '#60a5fa', color: THEME.text }}>
-            BSA
+            <label htmlFor="league-select" style={{ fontSize: 12, color: '#93c5fd', marginRight: 8 }}>
+              League
+            </label>
+            <select
+              id="league-select"
+              value={selectedLeagueId}
+              onChange={(e) => {
+                const id = Number(e.target.value);
+                setSelectedLeagueId(id);
+                window.localStorage.setItem('selectedLeagueId', String(id));
+              }}
+              style={{
+                background: THEME.inputBg,
+                color: THEME.text,
+                border: `1px solid ${THEME.border}`,
+                borderRadius: 8,
+                padding: '8px 10px',
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              {COMPETITIONS.map((c) => (
+                <option key={c.code} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
           </div>
         </header>
 

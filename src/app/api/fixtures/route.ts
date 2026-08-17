@@ -9,8 +9,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Missing Supabase server env variables' }, { status: 500 });
   }
 
-  const { searchParams } = new URL(req.url);
-  const leagueId = searchParams.get('league_id');
+const { searchParams } = new URL(req.url);
+const leagueId = searchParams.get('league_id');
+
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -23,9 +24,9 @@ export async function GET(req: NextRequest) {
     )
     .order('fixture_date', { ascending: true });
 
-  if (leagueId) {
-    query = query.eq('league_id', leagueId);
-  }
+ if (leagueId) {
+  query = query.eq('league_id', Number(leagueId));
+}
 
   const { data, error } = await query;
 
