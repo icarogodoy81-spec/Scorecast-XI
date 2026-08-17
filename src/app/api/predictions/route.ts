@@ -85,8 +85,8 @@ export async function POST(request: Request) {
     const { error } = await supabase.from('predictions').upsert(
       {
         user_id: user.id,
-        fixture_id: fixture.api_fixture_id, // API id — stable identifier your frontend matches against
-        match_id: fixture.id,               // internal id — satisfies predictions_match_id_fkey → fixtures(id)
+        fixture_id: fixture.id,
+        match_id: fixture.id,
         home_score: Number(homeScore),
         away_score: Number(awayScore),
         updated_at: new Date().toISOString(),
