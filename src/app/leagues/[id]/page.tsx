@@ -159,7 +159,7 @@ export default async function LeagueDetailPage({
             exactScores++;
             outcome = "Exact Score";
             predPoints = POINTS_EXACT;
-          } else if (predH - predA === actH - actA) {
+          } else if (actH !== actA && predH - predA === actH - actA) {
             goalDiff++;
             outcome = "Correct Goal Difference";
             predPoints = POINTS_GOAL_DIFF;

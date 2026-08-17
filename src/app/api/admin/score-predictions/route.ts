@@ -33,7 +33,7 @@ function calculatePoints(
   if (predResult !== actualResult) return 0;
 
   // correct result from here on
-  if (predDiff === actualDiff) return 3; // correct result + correct goal difference
+  if (predDiff === actualDiff && actualResult !== 0) return 3; // correct result + correct goal difference
 
   return 2; // correct result only
 }
