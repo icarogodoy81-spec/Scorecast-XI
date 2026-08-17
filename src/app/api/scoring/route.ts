@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { COMPETITIONS } from '@/lib/competitions';
 
 const FOOTBALL_DATA_API_KEY = process.env.FOOTBALL_DATA_API_KEY;
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -137,115 +138,131 @@ export async function POST(request: Request) {
     });
 
     const today = new Date();
-
     const past = new Date();
     past.setDate(today.getDate() - 30);
 
     const dateFrom = formatDate(past);
     const dateTo = formatDate(today);
 
-    const footballUrl = `https://api.football-data.org/v4/competitions/BSA/matches?dateFrom=${dateFrom}&dateTo=${dateTo}`;
-
-    const footballResponse = await fetch(footballUrl, {
-      headers: {
-        'X-Auth-Token': FOOTBALL_DATA_API_KEY,
-      },
-      cache: 'no-store',
-    });
-
-    if (!footballResponse.ok) {
-      const text = await footballResponse.text();
-
-      return NextResponse.json(
-        {
-          error: 'Failed to fetch finished matches from football-data.org',
-          status: footballResponse.status,
-          details: text,
-        },
-        { status: footballResponse.status }
-      );
-    }
-
-    const footballData = await footballResponse.json();
-
-    const finishedMatches: FootballDataMatch[] = (
-      footballData.matches || []
-    ).filter((match: FootballDataMatch) => {
-      const actualHome = match.score?.fullTime?.home;
-      const actualAway = match.score?.fullTime?.away;
-
-      return (
-        match.status === 'FINISHED' &&
-        actualHome !== null &&
-        actualHome !== undefined &&
-        actualAway !== null &&
-        actualAway !== undefined
-      );
-    });
-
     let updatedPredictions = 0;
-    const scoredMatches = [];
+    let finishedMatchesFound = 0;
+    const scoredMatches: {
+      matchId: number;
+      competition: string;
+      homeTeam: string;
+      awayTeam: string;
+      actualHome: number | null;
+      actualAway: number | null;
+      predictionsScored: number;
+    }[] = [];
 
-    for (const match of finishedMatches) {
-      const actualHome = match.score?.fullTime?.home;
-      const actualAway = match.score?.fullTime?.away;
+    for (let i = 0; i < COMPETITIONS.length; i++) {
+      const competition = COMPETITIONS[i];
 
-      if (actualHome === null || actualHome === undefined) continue;
-      if (actualAway === null || actualAway === undefined) continue;
+      const footballUrl =
+        `https://api.football-data.org/v4/competitions/${competition.code}/matches` +
+        `?dateFrom=${dateFrom}&dateTo=${dateTo}`;
 
-      const { data: predictions, error: predictionsError } = await supabase
-        .from('predictions')
-        .select('id, user_id, match_id, home_score, away_score, scored_at')
-        .eq('match_id', match.id)
-        .is('scored_at', null);
+      const footballResponse = await fetch(footballUrl, {
+        headers: {
+          'X-Auth-Token': FOOTBALL_DATA_API_KEY,
+        },
+        cache: 'no-store',
+      });
 
-      if (predictionsError) {
-        throw new Error(predictionsError.message);
+      if (!footballResponse.ok) {
+        console.warn(
+          `Skipping ${competition.code}: football-data.org returned ${footballResponse.status}`
+        );
+        continue;
       }
 
-      const predictionRows = (predictions || []) as PredictionRow[];
+      const footballData = await footballResponse.json();
 
-      for (const prediction of predictionRows) {
-        const points = calculatePoints(
-          prediction.home_score,
-          prediction.away_score,
-          actualHome,
-          actualAway
+      const finishedMatches: FootballDataMatch[] = (
+        footballData.matches || []
+      ).filter((match: FootballDataMatch) => {
+        const actualHome = match.score?.fullTime?.home;
+        const actualAway = match.score?.fullTime?.away;
+
+        return (
+          match.status === 'FINISHED' &&
+          actualHome !== null &&
+          actualHome !== undefined &&
+          actualAway !== null &&
+          actualAway !== undefined
         );
+      });
 
-        const { error: updateError } = await supabase
+      finishedMatchesFound += finishedMatches.length;
+
+      for (const match of finishedMatches) {
+        const actualHome = match.score?.fullTime?.home;
+        const actualAway = match.score?.fullTime?.away;
+
+        if (actualHome === null || actualHome === undefined) continue;
+        if (actualAway === null || actualAway === undefined) continue;
+
+        const { data: predictions, error: predictionsError } = await supabase
           .from('predictions')
-          .update({
-            points,
-            actual_home_score: actualHome,
-            actual_away_score: actualAway,
-            match_status: match.status,
-            scored_at: new Date().toISOString(),
-          })
-          .eq('id', prediction.id);
+          .select('id, user_id, match_id, home_score, away_score, scored_at')
+          .eq('match_id', match.id)
+          .is('scored_at', null);
 
-        if (updateError) {
-          throw new Error(updateError.message);
+        if (predictionsError) {
+          throw new Error(predictionsError.message);
         }
 
-        updatedPredictions += 1;
+        const predictionRows = (predictions || []) as PredictionRow[];
+
+        for (const prediction of predictionRows) {
+          const points = calculatePoints(
+            prediction.home_score,
+            prediction.away_score,
+            actualHome,
+            actualAway
+          );
+
+          const { error: updateError } = await supabase
+            .from('predictions')
+            .update({
+              points,
+              actual_home_score: actualHome,
+              actual_away_score: actualAway,
+              match_status: match.status,
+              scored_at: new Date().toISOString(),
+            })
+            .eq('id', prediction.id);
+
+          if (updateError) {
+            throw new Error(updateError.message);
+          }
+
+          updatedPredictions += 1;
+        }
+
+        scoredMatches.push({
+          matchId: match.id,
+          competition: competition.code,
+          homeTeam: match.homeTeam.shortName || match.homeTeam.name,
+          awayTeam: match.awayTeam.shortName || match.awayTeam.name,
+          actualHome,
+          actualAway,
+          predictionsScored: predictionRows.length,
+        });
       }
 
-      scoredMatches.push({
-        matchId: match.id,
-        homeTeam: match.homeTeam.shortName || match.homeTeam.name,
-        awayTeam: match.awayTeam.shortName || match.awayTeam.name,
-        actualHome,
-        actualAway,
-        predictionsScored: predictionRows.length,
-      });
+      // Free tier: 10 requests/minute. Space 12 competitions out safely.
+      if (i < COMPETITIONS.length - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 7000));
+      }
     }
 
     return NextResponse.json({
       success: true,
       dateFrom,
       dateTo,
-      finishedMatchesFound: finishedMatches.length,
+      finishedMatchesFound,
       updatedPredictions,
       scoredMatches,
     });
