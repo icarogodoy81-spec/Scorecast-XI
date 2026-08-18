@@ -106,7 +106,7 @@ export default async function LeagueDetailPage({
 
   const { data: fixtures } = await supabase
     .from("fixtures")
-    .select("id, api_fixture_id, home_team_name, away_team_name, home_score, away_score")
+    .select("id, api_fixture_id, home_team_name, away_team_name, home_score, away_score, competition_code")
     .in("id", fixtureIds);
 
   const fixturesById = new Map((fixtures || []).map((f: any) => [f.id, f]));
@@ -119,6 +119,14 @@ export default async function LeagueDetailPage({
     .in("api_fixture_id", apiFixtureIds);
 
   const matchesByApiId = new Map((matches || []).map((m: any) => [m.api_fixture_id, m]));
+
+  // Derive the competition code the leaderboard is actually scoring on:
+  // prefer the league's own field, otherwise take it from the fixtures its
+  // predictions point at, so the button always opens the right league.
+  const leagueCompetitionCode =
+    league.competition_code ||
+    (fixtures || []).map((f: any) => f.competition_code).find((c: any) => c) ||
+    null;
 
   const now = new Date();
 
@@ -225,8 +233,8 @@ export default async function LeagueDetailPage({
 
             <Link
               href={
-                league.competition_code
-                  ? `/predictions?competition_code=${league.competition_code}`
+                leagueCompetitionCode
+                  ? `/predictions?competition_code=${leagueCompetitionCode}`
                   : "/predictions"
               }
               className="inline-block mt-4 px-5 py-2.5 rounded-lg font-semibold text-sm"
