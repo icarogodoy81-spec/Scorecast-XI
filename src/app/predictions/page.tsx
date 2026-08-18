@@ -1,9 +1,8 @@
 /* eslint-disable @next/next/no-img-element */
 'use client';
 
-import Link from "next/link";
-import Image from "next/image";
-import { CSSProperties, useEffect, useMemo, useState } from 'react';
+import { CSSProperties, Suspense, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import '../fixtures/fixtures.css';
 import { COMPETITIONS } from '@/lib/competitions';
 
@@ -304,11 +303,6 @@ function isLocked(fixture: Fixture) {
   return new Date(kickoff).getTime() <= Date.now();
 }
 
-function getQueryParam(name: string) {
-  if (typeof window === 'undefined') return null;
-  return new URLSearchParams(window.location.search).get(name);
-}
-
 function TeamBadge({ name, logo, meta }: { name: string; logo: string | null; meta: TeamMeta }) {
   const [logoFailed, setLogoFailed] = useState(false);
   const badgeBorderColour = getGradientColour(meta);
@@ -335,7 +329,21 @@ function TeamBadge({ name, logo, meta }: { name: string; logo: string | null; me
 }
 
 export default function PredictionsPage() {
-  const [urlCompetitionCode] = useState<string | null>(() => getQueryParam('competition_code'));
+  return (
+    <Suspense
+      fallback={
+        <main style={{ background: THEME.darkBlue, minHeight: '100vh', color: THEME.text }} />
+      }
+    >
+      <PredictionsContent />
+    </Suspense>
+  );
+}
+
+function PredictionsContent() {
+  const searchParams = useSearchParams();
+  const urlCompetitionCode = searchParams.get('competition_code');
+
   const [fixtures, setFixtures] = useState<Fixture[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -348,14 +356,25 @@ export default function PredictionsPage() {
     return window.localStorage.getItem('selectedCompetitionCode') || 'BSA';
   });
 
+  // URL param is authoritative: when a league page links here with
+  // ?competition_code=X, drive the view from X and persist it, so it always
+  // overrides whatever was last stored in localStorage.
+  useEffect(() => {
+    if (urlCompetitionCode) {
+      const code = urlCompetitionCode.toUpperCase();
+      setSelectedCompetitionCode(code);
+      window.localStorage.setItem('selectedCompetitionCode', code);
+    }
+  }, [urlCompetitionCode]);
+
+  const effectiveCode = urlCompetitionCode || selectedCompetitionCode;
+
   useEffect(() => {
     async function loadData() {
       setLoading(true);
       setError('');
       try {
-        const fixturesUrl = urlCompetitionCode
-          ? `/api/fixtures?competition_code=${urlCompetitionCode}`
-          : `/api/fixtures?competition_code=${selectedCompetitionCode}`;
+        const fixturesUrl = `/api/fixtures?competition_code=${effectiveCode.toUpperCase()}`;
 
         const [fixturesRes, predictionsRes] = await Promise.all([
           fetch(fixturesUrl, { cache: 'no-store' }),
@@ -412,7 +431,7 @@ export default function PredictionsPage() {
     }
 
     loadData();
-  }, [selectedCompetitionCode, urlCompetitionCode]);
+  }, [effectiveCode]);
 
   const groupedFixtures = useMemo(() => {
     return fixtures.reduce<Record<string, Fixture[]>>((groups, fixture) => {
@@ -544,7 +563,8 @@ export default function PredictionsPage() {
                 fontWeight: 700,
               }}
             >
-              {COMPETITIONS.find((c) => c.code === urlCompetitionCode)?.name || urlCompetitionCode}
+              {COMPETITIONS.find((c) => c.code.toUpperCase() === urlCompetitionCode.toUpperCase())
+                ?.name || urlCompetitionCode}
             </div>
           ) : (
             <select
