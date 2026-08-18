@@ -72,13 +72,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing scores' }, { status: 400 });
     }
 
-    const { data: fixture, error: fixtureError } = await supabase
+    // Accept either the internal fixtures.id or the real api_fixture_id,
+    // so a valid fixture is never rejected with "Fixture not found".
+    const { data: fixtureRows, error: fixtureError } = await supabase
       .from('fixtures')
       .select('id, api_fixture_id')
-      .eq('api_fixture_id', apiId)
-      .single();
+      .or(`id.eq.${apiId},api_fixture_id.eq.${apiId}`)
+      .limit(1);
 
-    if (fixtureError || !fixture) {
+    if (fixtureError) {
+      return NextResponse.json({ error: fixtureError.message }, { status: 500 });
+    }
+
+    const fixture = fixtureRows?.[0];
+
+    if (!fixture) {
       return NextResponse.json({ error: 'Fixture not found' }, { status: 404 });
     }
 

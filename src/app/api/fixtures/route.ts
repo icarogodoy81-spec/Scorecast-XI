@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
   let query = supabase
     .from('fixtures')
     .select(
-      'id, league_id, round, competition_code, home_team_name, away_team_name, home_team_logo, away_team_logo, date, status, home_score, away_score'
+      'id, api_fixture_id, league_id, round, competition_code, home_team_name, away_team_name, home_team_logo, away_team_logo, date, status, home_score, away_score'
     )
     .order('date', { ascending: true });
 
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
 
   const matches = (data || []).map((row) => ({
     id: row.id,
-    api_fixture_id: row.id,
+    api_fixture_id: row.api_fixture_id ?? row.id,
     home_team: row.home_team_name,
     away_team: row.away_team_name,
     home_logo: row.home_team_logo,
