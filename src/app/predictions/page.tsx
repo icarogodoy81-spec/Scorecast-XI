@@ -351,14 +351,14 @@ function PredictionsContent() {
   const [savedPredictions, setSavedPredictions] = useState<Record<string, boolean>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<Record<string, string>>({});
+  const [joinedCodes, setJoinedCodes] = useState<string[] | null>(null);
   const [selectedCompetitionCode, setSelectedCompetitionCode] = useState<string>(() => {
     if (typeof window === 'undefined') return 'BSA';
     return window.localStorage.getItem('selectedCompetitionCode') || 'BSA';
   });
 
   // URL param is authoritative: when a league page links here with
-  // ?competition_code=X, drive the view from X and persist it, so it always
-  // overrides whatever was last stored in localStorage.
+  // ?competition_code=X, drive the view from X and persist it.
   useEffect(() => {
     if (urlCompetitionCode) {
       const code = urlCompetitionCode.toUpperCase();
@@ -367,9 +367,56 @@ function PredictionsContent() {
     }
   }, [urlCompetitionCode]);
 
-  const effectiveCode = urlCompetitionCode || selectedCompetitionCode;
+  // Load the competition codes of the leagues this user has joined.
+  useEffect(() => {
+    async function loadMyLeagues() {
+      try {
+        const res = await fetch('/api/my-leagues', { cache: 'no-store' });
+        if (!res.ok) {
+          setJoinedCodes([]);
+          return;
+        }
+        const data = await res.json();
+        setJoinedCodes(
+          (data.competitionCodes || []).map((code: string) => code.toUpperCase())
+        );
+      } catch {
+        setJoinedCodes([]);
+      }
+    }
+    loadMyLeagues();
+  }, []);
+
+  // If the stored/default selection isn't one of the joined leagues, snap to the first.
+  useEffect(() => {
+    if (joinedCodes === null || joinedCodes.length === 0) return;
+    if (urlCompetitionCode) return;
+    if (!joinedCodes.includes(selectedCompetitionCode)) {
+      const code = joinedCodes[0];
+      setSelectedCompetitionCode(code);
+      window.localStorage.setItem('selectedCompetitionCode', code);
+    }
+  }, [joinedCodes, selectedCompetitionCode, urlCompetitionCode]);
+
+  const availableCompetitions = useMemo(() => {
+    const codes = joinedCodes ?? [];
+    return codes.map((code) => {
+      const match = COMPETITIONS.find((c) => c.code.toUpperCase() === code);
+      return { code, name: match?.name || code };
+    });
+  }, [joinedCodes]);
+
+  const effectiveCode = urlCompetitionCode
+    ? urlCompetitionCode.toUpperCase()
+    : selectedCompetitionCode;
+
+  const isReady = joinedCodes !== null;
 
   useEffect(() => {
+    if (!isReady) return;
+    if (!effectiveCode) return;
+    if (!joinedCodes.includes(effectiveCode)) return;
+
     async function loadData() {
       setLoading(true);
       setError('');
@@ -431,7 +478,7 @@ function PredictionsContent() {
     }
 
     loadData();
-  }, [effectiveCode]);
+  }, [effectiveCode, isReady, joinedCodes]);
 
   const groupedFixtures = useMemo(() => {
     return fixtures.reduce<Record<string, Fixture[]>>((groups, fixture) => {
@@ -517,6 +564,45 @@ function PredictionsContent() {
     color: THEME.text,
   };
 
+  if (isReady && availableCompetitions.length === 0 && !urlCompetitionCode) {
+    return (
+      <main style={shellStyle}>
+        <div
+          style={{
+            ...pageStyle,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <div style={{ textAlign: 'center', padding: '48px 24px' }}>
+            <h1 style={{ color: THEME.text, fontSize: 24, fontWeight: 700 }}>
+              No leagues joined yet
+            </h1>
+            <p style={{ color: THEME.mutedText, marginTop: 8 }}>
+              Join a league to start making predictions.
+            </p>
+            <a
+              href="/leagues"
+              style={{
+                display: 'inline-block',
+                marginTop: 20,
+                padding: '10px 20px',
+                background: THEME.green,
+                color: '#ffffff',
+                borderRadius: 8,
+                fontWeight: 700,
+                textDecoration: 'none',
+              }}
+            >
+              Browse leagues
+            </a>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   const topBar = (
     <>
       <header
@@ -566,6 +652,20 @@ function PredictionsContent() {
               {COMPETITIONS.find((c) => c.code.toUpperCase() === urlCompetitionCode.toUpperCase())
                 ?.name || urlCompetitionCode}
             </div>
+          ) : joinedCodes === null ? (
+            <div
+              style={{
+                width: '100%',
+                background: THEME.inputBg,
+                color: THEME.mutedText,
+                border: `1px solid ${THEME.border}`,
+                borderRadius: 8,
+                padding: '10px 12px',
+                fontSize: 14,
+              }}
+            >
+              Loading…
+            </div>
           ) : (
             <select
               id="league-select"
@@ -588,9 +688,9 @@ function PredictionsContent() {
                 outline: 'none',
               }}
             >
-              {COMPETITIONS.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {c.name}
+              {availableCompetitions.map(({ code, name }) => (
+                <option key={code} value={code}>
+                  {name}
                 </option>
               ))}
             </select>

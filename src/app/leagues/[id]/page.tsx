@@ -95,44 +95,65 @@ export default async function LeagueDetailPage({
     );
   }
 
-  const { data: predictions } = await supabase
-    .from("predictions")
-    .select(
-      "id, user_id, home_score, away_score, actual_home_score, actual_away_score, points, match_id"
-    )
-    .in("user_id", userIds);
-
-  const fixtureIds = [...new Set((predictions || []).map((p: any) => p.match_id))];
-
-  const { data: fixtures } = await supabase
+  // --- Fetch only THIS league's fixtures (scoped by competition_code) ---
+  let fixturesQuery = supabase
     .from("fixtures")
-    .select("id, api_fixture_id, home_team_name, away_team_name, home_score, away_score, competition_code")
-    .in("id", fixtureIds);
+    .select("id, api_fixture_id, home_team_name, away_team_name, home_score, away_score, competition_code");
 
-  const fixturesById = new Map((fixtures || []).map((f: any) => [f.id, f]));
+  if (league.competition_code) {
+    fixturesQuery = fixturesQuery.eq("competition_code", league.competition_code);
+  }
 
-  const apiFixtureIds = [...new Set((fixtures || []).map((f: any) => f.api_fixture_id).filter(Boolean))];
+  const { data: leagueFixtures } = await fixturesQuery;
+  const fixtures = leagueFixtures ?? [];
 
-  const { data: matches } = await supabase
-    .from("matches")
-    .select("api_fixture_id, home_team, away_team, match_date, status, home_score, away_score")
-    .in("api_fixture_id", apiFixtureIds);
+  const fixtureIds = [...new Set(fixtures.map((f: any) => f.id))];
 
-  const matchesByApiId = new Map((matches || []).map((m: any) => [m.api_fixture_id, m]));
+  // --- Predictions only for members AND this league's fixtures ---
+  let predictions: any[] = [];
+
+  if (fixtureIds.length > 0) {
+    const { data: leaguePredictions } = await supabase
+      .from("predictions")
+      .select(
+        "id, user_id, home_score, away_score, actual_home_score, actual_away_score, points, match_id"
+      )
+      .in("user_id", userIds)
+      .in("match_id", fixtureIds);
+
+    predictions = leaguePredictions ?? [];
+  }
+
+  const fixturesById = new Map(fixtures.map((f: any) => [f.id, f]));
+
+  const apiFixtureIds = [...new Set(fixtures.map((f: any) => f.api_fixture_id).filter(Boolean))];
+
+  let matches: any[] = [];
+
+  if (apiFixtureIds.length > 0) {
+    const { data: matchesData } = await supabase
+      .from("matches")
+      .select("api_fixture_id, home_team, away_team, match_date, status, home_score, away_score")
+      .in("api_fixture_id", apiFixtureIds);
+
+    matches = matchesData ?? [];
+  }
+
+  const matchesByApiId = new Map(matches.map((m: any) => [m.api_fixture_id, m]));
 
   // Derive the competition code the leaderboard is actually scoring on:
   // prefer the league's own field, otherwise take it from the fixtures its
   // predictions point at, so the button always opens the right league.
   const leagueCompetitionCode =
     league.competition_code ||
-    (fixtures || []).map((f: any) => f.competition_code).find((c: any) => c) ||
+    fixtures.map((f: any) => f.competition_code).find((c: any) => c) ||
     null;
 
   const now = new Date();
 
   const standings = (members || []).map((m: any) => {
     const username = m.profiles?.username || "Unknown";
-    const userPreds = (predictions || []).filter((p: any) => p.user_id === m.user_id);
+    const userPreds = predictions.filter((p: any) => p.user_id === m.user_id);
 
     let totalPoints = 0;
     let exactScores = 0;
