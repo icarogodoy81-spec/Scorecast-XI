@@ -27,10 +27,32 @@ export async function GET() {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    const rows = data || [];
+
+    // Map internal fixtures.id -> api_fixture_id, so the returned key
+    // matches the frontend's getFixtureId() (which returns the api id).
+    const fixtureIds = [...new Set(rows.map((r) => r.fixture_id).filter(Boolean))] as number[];
+    const apiIdByFixture: Record<string, number> = {};
+
+    if (fixtureIds.length > 0) {
+      const { data: fixturesData, error: fixturesError } = await supabase
+        .from('fixtures')
+        .select('id, api_fixture_id')
+        .in('id', fixtureIds);
+
+      if (fixturesError) {
+        return NextResponse.json({ error: fixturesError.message }, { status: 500 });
+      }
+
+      for (const f of fixturesData || []) {
+        apiIdByFixture[String(f.id)] = f.api_fixture_id;
+      }
+    }
+
     return NextResponse.json({
-      predictions: (data || []).map((row) => ({
+      predictions: rows.map((row) => ({
         fixture_id: row.fixture_id,
-        match_id: row.match_id,
+        match_id: apiIdByFixture[String(row.fixture_id)] ?? row.match_id,
         home_score: row.home_score,
         away_score: row.away_score,
       })),
@@ -72,8 +94,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing scores' }, { status: 400 });
     }
 
-    // Accept either the internal fixtures.id or the real api_fixture_id,
-    // so a valid fixture is never rejected with "Fixture not found".
     const { data: fixtureRows, error: fixtureError } = await supabase
       .from('fixtures')
       .select('id, api_fixture_id')
