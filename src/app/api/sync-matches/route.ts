@@ -12,6 +12,7 @@ type ApiMatch = {
   utcDate: string;
   status: string;
   matchday: number | null;
+  season?: { id: number };
   homeTeam: { id: number; name: string; crest: string };
   awayTeam: { id: number; name: string; crest: string };
   score: {
@@ -41,48 +42,39 @@ export async function GET() {
 
   try {
     let total = 0;
-
     const now = new Date();
-    const dateFrom = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    
+    // FIX 1: Look back 30 days instead of 7 to catch older matches stuck on "TIMED"
+    const dateFrom = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const dateTo = new Date(now.getTime() + 300 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
     for (const competition of COMPETITIONS) {
-      // 1. Get this competition's current season
-      const compRes = await fetch(
-        `${FOOTBALL_BASE_URL}/competitions/${competition.code}`,
-        { headers: { 'X-Auth-Token': FOOTBALL_API_KEY } }
-      );
-
-      await new Promise((r) => setTimeout(r, 7000)); // stay under 10 calls/min
-
-      if (!compRes.ok) {
-        report.push({ code: competition.code, name: competition.name, season: null, status: compRes.status, matches: 0 });
-        continue;
-      }
-
-      const compJson = await compRes.json();
-      const seasonId: number | null = compJson.currentSeason?.id ?? null;
-
-      if (!seasonId) {
-        report.push({ code: competition.code, name: competition.name, season: null, status: 'no-current-season', matches: 0 });
-        continue;
-      }
-
-      // 2. Get that season's matches (date window instead of season filter)
+      
+      // FIX 2: Skip the redundant competition API call to prevent Next.js timeouts.
+      // We go straight to fetching the matches.
       const res = await fetch(
         `${FOOTBALL_BASE_URL}/competitions/${competition.code}/matches?dateFrom=${dateFrom}&dateTo=${dateTo}`,
         { headers: { 'X-Auth-Token': FOOTBALL_API_KEY } }
       );
 
-      await new Promise((r) => setTimeout(r, 7000));
+      // Sleep 6.5s to stay under the 10 calls/minute limit safely
+      await new Promise((r) => setTimeout(r, 6500));
 
       if (!res.ok) {
-        report.push({ code: competition.code, name: competition.name, season: seasonId, status: res.status, matches: 0 });
+        report.push({ code: competition.code, name: competition.name, season: null, status: res.status, matches: 0 });
         continue;
       }
 
       const json = await res.json();
       const apiMatches: ApiMatch[] = json.matches || [];
+
+      if (apiMatches.length === 0) {
+        report.push({ code: competition.code, name: competition.name, season: null, status: 'no-matches', matches: 0 });
+        continue;
+      }
+
+      // Extract the season ID directly from the first match
+      const seasonId = apiMatches[0].season?.id || null;
 
       const rows = apiMatches.map((m) => ({
         api_fixture_id: m.id,

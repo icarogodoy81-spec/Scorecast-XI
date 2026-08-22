@@ -16,6 +16,7 @@ const supabaseAdmin = createClient(
 );
 
 async function getPlayerData(userId: string) {
+  // 1. Get Profile
   const profileResponse = await supabaseAdmin
     .from("profiles")
     .select("id, username")
@@ -26,36 +27,33 @@ async function getPlayerData(userId: string) {
     throw new Error(profileResponse.error.message);
   }
 
-  const predictionsResponse = await supabaseAdmin
+  // 2. Fetch predictions and join the 'matches' table directly
+  const { data: predictions, error: predictionsError } = await supabaseAdmin
     .from("predictions")
-    .select("match_id, home_score, away_score, points, actual_home_score, actual_away_score")
+    .select(`
+      match_id, 
+      home_score, 
+      away_score, 
+      points, 
+      actual_home_score, 
+      actual_away_score,
+      matches (
+        id, 
+        home_team_name, 
+        away_team_name, 
+        date, 
+        home_score, 
+        away_score, 
+        status
+      )
+    `)
     .eq("user_id", userId);
 
-  if (predictionsResponse.error) {
-    throw new Error(predictionsResponse.error.message);
+  if (predictionsError) {
+    throw new Error(predictionsError.message);
   }
 
-  const predictions = predictionsResponse.data ?? [];
-  const matchIds = predictions.map((p) => p.match_id).filter((id) => id !== null);
-
-  let fixtures: any[] = [];
-
-  if (matchIds.length > 0) {
-    const fixturesResponse = await supabaseAdmin
-      .from("fixtures")
-      .select("id, home_team_name, away_team_name, date, home_score, away_score, status")
-      .in("id", matchIds);
-
-    if (fixturesResponse.error) {
-      throw new Error(fixturesResponse.error.message);
-    }
-
-    fixtures = fixturesResponse.data ?? [];
-  }
-
-  const fixturesById = new Map(fixtures.map((f) => [f.id, f]));
   const now = new Date();
-
   const finishedOrLiveStatuses = [
     "IN_PLAY",
     "PAUSED",
@@ -70,33 +68,37 @@ async function getPlayerData(userId: string) {
     "HT",
   ];
 
-  const visiblePredictions = predictions
-    .map((prediction) => {
-      const fixture = fixturesById.get(prediction.match_id);
-      if (!fixture) return null;
+  // 3. Filter for started/finished matches and map to UI format
+  const visiblePredictions = (predictions || [])
+    .map((prediction: any) => {
+      const match = prediction.matches;
+      
+      // If the joined match data is missing, skip
+      if (!match) return null;
 
-      const kickoff = new Date(fixture.date);
-      const statusUpper = (fixture.status || "").toUpperCase();
+      const kickoff = new Date(match.date);
+      const statusUpper = (match.status || "").toUpperCase();
       const started = kickoff <= now || finishedOrLiveStatuses.includes(statusUpper);
 
       if (!started) return null;
 
       return {
-        matchId: fixture.id,
-        homeTeam: fixture.home_team_name,
-        awayTeam: fixture.away_team_name,
-        matchDate: fixture.date,
-        status: fixture.status,
-        actualHome: fixture.home_score ?? prediction.actual_home_score,
-        actualAway: fixture.away_score ?? prediction.actual_away_score,
+        matchId: match.id,
+        homeTeam: match.home_team_name,
+        awayTeam: match.away_team_name,
+        matchDate: match.date,
+        status: match.status,
+        actualHome: match.home_score ?? prediction.actual_home_score,
+        actualAway: match.away_score ?? prediction.actual_away_score,
         guessHome: prediction.home_score,
         guessAway: prediction.away_score,
-        points: prediction.points,
+        points: prediction.points, // Using exact points from your DB
       };
     })
     .filter((row): row is NonNullable<typeof row> => row !== null)
     .sort((a, b) => new Date(b.matchDate).getTime() - new Date(a.matchDate).getTime());
 
+  // 4. Sum up the points
   const totalPoints = visiblePredictions.reduce((sum, p) => sum + (Number(p.points) || 0), 0);
 
   return {
@@ -130,7 +132,6 @@ export default async function PlayerPredictionsPage({
 
   try {
     const data = await getPlayerData(userId);
-
     username = data.username;
     predictions = data.predictions;
     totalPoints = data.totalPoints;
