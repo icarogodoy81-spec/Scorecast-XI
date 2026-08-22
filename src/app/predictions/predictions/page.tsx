@@ -3,7 +3,7 @@
 
 import { CSSProperties, Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import '../fixtures/fixtures.css';
+import '../../fixtures/fixtures.css';
 import { COMPETITIONS } from '@/lib/competitions';
 
 type Fixture = any;
