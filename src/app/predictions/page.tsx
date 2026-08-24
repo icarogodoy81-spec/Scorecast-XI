@@ -698,6 +698,19 @@ function PredictionsContent() {
         </div>
       </header>
 
+      <div style={{
+        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        borderLeft: '4px solid #3b82f6',
+        padding: '12px 16px',
+        marginTop: '20px',
+        borderRadius: '4px',
+        fontSize: '14px',
+        color: THEME.text,
+        lineHeight: '1.5'
+      }}>
+        <strong style={{ color: '#93c5fd' }}>Note:</strong> Match statuses (In Play, Finished) are updated periodically. Points will be awarded once the match result is officially finalized in our system.
+      </div>
+
       <section className="fixtures-groups">
         {Object.entries(groupedFixtures).map(([dateLabel, items]) => (
           <div key={dateLabel} className="fixture-date-group" style={dateGroupStyle}>
