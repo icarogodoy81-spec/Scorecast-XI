@@ -2,6 +2,10 @@
 import { createClient } from '@supabase/supabase-js';
 import { COMPETITIONS } from '@/lib/competitions';
 
+// Force Next.js to NEVER cache this route
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const FOOTBALL_API_KEY = process.env.FOOTBALL_DATA_API_KEY;
@@ -55,17 +59,19 @@ export async function GET(request: Request) {
     let total = 0;
     const now = new Date();
     
-    // FIX 1: Look back 30 days instead of 7 to catch older matches stuck on "TIMED"
+    // Look back 30 days and forward 300 days
     const dateFrom = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const dateTo = new Date(now.getTime() + 300 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
     for (const competition of COMPETITIONS) {
       
-      // FIX 2: Skip the redundant competition API call to prevent Next.js timeouts.
-      // We go straight to fetching the matches.
+      // Fetch fresh data, bypassing all caches
       const res = await fetch(
         `${FOOTBALL_BASE_URL}/competitions/${competition.code}/matches?dateFrom=${dateFrom}&dateTo=${dateTo}`,
-        { headers: { 'X-Auth-Token': FOOTBALL_API_KEY } }
+        { 
+          headers: { 'X-Auth-Token': FOOTBALL_API_KEY },
+          cache: 'no-store' 
+        }
       );
 
       // Sleep 6.5s to stay under the 10 calls/minute limit safely
@@ -84,7 +90,6 @@ export async function GET(request: Request) {
         continue;
       }
 
-      // Extract the season ID directly from the first match
       const seasonId = apiMatches[0].season?.id || null;
 
       const rows = apiMatches.map((m) => ({
