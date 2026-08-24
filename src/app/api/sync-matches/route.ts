@@ -1,15 +1,6 @@
 ﻿import { NextResponse } from 'next/server';
-
-export async function GET(request: Request) {
-  // Add this security check
-  const authHeader = request.headers.get('authorization');
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  // ... rest of your existing sync code ...
-}
-
+import { createClient } from '@supabase/supabase-js';
+import { COMPETITIONS } from '@/lib/competitions';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -29,7 +20,17 @@ type ApiMatch = {
   };
 };
 
-export async function GET() {
+export async function GET(request: Request) {
+  // 1. Security Check
+  const authHeader = request.headers.get('authorization');
+  if (
+    process.env.NODE_ENV !== 'development' &&
+    authHeader !== `Bearer ${process.env.CRON_SECRET}`
+  ) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // 2. Validate Env Variables
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     return NextResponse.json({ error: 'Missing Supabase server env variables' }, { status: 500 });
   }
@@ -37,6 +38,7 @@ export async function GET() {
     return NextResponse.json({ error: 'Missing FOOTBALL_DATA_API_KEY' }, { status: 500 });
   }
 
+  // 3. Initialize Supabase
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
