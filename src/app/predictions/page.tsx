@@ -654,10 +654,6 @@ function PredictionsContent() {
                 COMPETITIONS.find((c) => c.code.toUpperCase() === urlCompetitionCode.toUpperCase())?.name || 
                 urlCompetitionCode}
             </div>
-          ) : joinedCodes === null ? (
-            </div>
-          ) : joinedCodes === null ? (
-            <div
               style={{
                 width: '100%',
                 background: THEME.inputBg,
