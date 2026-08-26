@@ -358,8 +358,6 @@ function PredictionsContent() {
     return window.localStorage.getItem('selectedCompetitionCode') || 'BSA';
   });
 
-  // URL param is authoritative: when a league page links here with
-  // ?competition_code=X, drive the view from X and persist it.
   useEffect(() => {
     if (urlCompetitionCode) {
       const code = urlCompetitionCode.toUpperCase();
@@ -368,7 +366,6 @@ function PredictionsContent() {
     }
   }, [urlCompetitionCode]);
 
-  // Load the competition codes of the leagues this user has joined.
   useEffect(() => {
     async function loadMyLeagues() {
       try {
@@ -388,7 +385,6 @@ function PredictionsContent() {
     loadMyLeagues();
   }, []);
 
-  // If the stored/default selection isn't one of the joined leagues, snap to the first.
   useEffect(() => {
     if (joinedCodes === null || joinedCodes.length === 0) return;
     if (urlCompetitionCode) return;
@@ -637,14 +633,13 @@ function PredictionsContent() {
           >
             League
           </label>
-                urlCompetitionCode}
-            </div>
-          ) : joinedCodes === null ? (
+          
+          {urlCompetitionCode ? (
             <div
               style={{
                 width: '100%',
                 background: THEME.inputBg,
-                color: THEME.mutedText,
+                color: THEME.text,
                 border: `1px solid ${THEME.border}`,
                 borderRadius: 8,
                 padding: '10px 12px',
@@ -656,6 +651,8 @@ function PredictionsContent() {
                 COMPETITIONS.find((c) => c.code.toUpperCase() === urlCompetitionCode.toUpperCase())?.name || 
                 urlCompetitionCode}
             </div>
+          ) : joinedCodes === null ? (
+            <div
               style={{
                 width: '100%',
                 background: THEME.inputBg,
