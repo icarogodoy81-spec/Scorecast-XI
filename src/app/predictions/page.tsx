@@ -637,12 +637,14 @@ function PredictionsContent() {
           >
             League
           </label>
-          {urlCompetitionCode ? (
+                urlCompetitionCode}
+            </div>
+          ) : joinedCodes === null ? (
             <div
               style={{
                 width: '100%',
                 background: THEME.inputBg,
-                color: THEME.text,
+                color: THEME.mutedText,
                 border: `1px solid ${THEME.border}`,
                 borderRadius: 8,
                 padding: '10px 12px',
