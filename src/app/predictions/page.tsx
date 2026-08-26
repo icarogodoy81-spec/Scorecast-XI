@@ -343,6 +343,7 @@ export default function PredictionsPage() {
 function PredictionsContent() {
   const searchParams = useSearchParams();
   const urlCompetitionCode = searchParams.get('competition_code');
+  const urlLeagueName = searchParams.get('league_name');
 
   const [fixtures, setFixtures] = useState<Fixture[]>([]);
   const [loading, setLoading] = useState(true);
@@ -649,8 +650,11 @@ function PredictionsContent() {
                 fontWeight: 700,
               }}
             >
-              {COMPETITIONS.find((c) => c.code.toUpperCase() === urlCompetitionCode.toUpperCase())
-                ?.name || urlCompetitionCode}
+              {urlLeagueName || 
+                COMPETITIONS.find((c) => c.code.toUpperCase() === urlCompetitionCode.toUpperCase())?.name || 
+                urlCompetitionCode}
+            </div>
+          ) : joinedCodes === null ? (
             </div>
           ) : joinedCodes === null ? (
             <div

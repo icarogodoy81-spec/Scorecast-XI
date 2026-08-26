@@ -255,8 +255,8 @@ export default async function LeagueDetailPage({
             <Link
               href={
                 leagueCompetitionCode
-                  ? `/predictions?competition_code=${leagueCompetitionCode}`
-                  : "/predictions"
+                  ? `/predictions?competition_code=${leagueCompetitionCode}&league_name=${encodeURIComponent(league.name)}`
+                  : `/predictions?league_name=${encodeURIComponent(league.name)}`
               }
               className="inline-block mt-4 px-5 py-2.5 rounded-lg font-semibold text-sm"
               style={{ background: THEME.green, color: "#0f172a" }}
