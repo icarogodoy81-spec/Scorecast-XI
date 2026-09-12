@@ -5,13 +5,6 @@ import Navbar from "@/components/Navbar";
 
 export const dynamic = "force-dynamic";
 
-const THEME = {
-  darkBlue: "#0f172a",
-  mutedText: "#cbd5e1",
-  accent: "#93c5fd",
-  green: "#4ade80",
-};
-
 const VISIBLE_STATUSES = [
   "FT", "FINISHED", "AET", "PEN",
   "LIVE", "IN_PLAY", "1H", "2H", "HT", "PAUSED",
@@ -41,10 +34,7 @@ export default async function LeagueDetailPage({
     return (
       <>
         <Navbar />
-        <div
-          style={{ background: THEME.darkBlue, minHeight: "100vh", color: THEME.mutedText }}
-          className="flex items-center justify-center"
-        >
+        <div className="min-h-screen flex items-center justify-center text-slate-400">
           League not found.
         </div>
       </>
@@ -62,12 +52,9 @@ export default async function LeagueDetailPage({
     return (
       <>
         <Navbar />
-        <div
-          style={{ background: THEME.darkBlue, minHeight: "100vh", color: THEME.mutedText }}
-          className="flex flex-col items-center justify-center gap-4"
-        >
+        <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-slate-400">
           <p>You&apos;re not a member of this league.</p>
-          <Link href="/leagues" style={{ color: THEME.green }} className="hover:underline">
+          <Link href="/leagues" className="text-green-400 hover:underline">
             Back to leagues
           </Link>
         </div>
@@ -85,10 +72,7 @@ export default async function LeagueDetailPage({
     return (
       <>
         <Navbar />
-        <div
-          style={{ background: THEME.darkBlue, minHeight: "100vh", color: THEME.mutedText }}
-          className="flex items-center justify-center"
-        >
+        <div className="min-h-screen flex items-center justify-center text-slate-400">
           No members yet.
         </div>
       </>
@@ -241,13 +225,13 @@ export default async function LeagueDetailPage({
   return (
     <>
       <Navbar />
-      <div style={{ background: THEME.darkBlue, minHeight: "100vh", color: "#f8fafc" }} className="px-4 py-8 md:px-8">
+      <div className="min-h-screen px-4 py-8 md:px-8 text-slate-100">
         <div className="max-w-4xl mx-auto">
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold">{league.name}</h1>
-            <p style={{ color: THEME.mutedText }} className="text-sm mt-1">
+          <div className="mb-6 bg-slate-900/40 backdrop-blur-md border border-white/10 p-6 rounded-2xl shadow-xl">
+            <h1 className="text-3xl font-bold text-white">{league.name}</h1>
+            <p className="text-sm mt-2 text-slate-300">
               Invite code:{" "}
-              <span className="font-mono font-bold" style={{ color: THEME.accent }}>
+              <span className="font-mono font-bold text-blue-400 tracking-wide">
                 {league.invite_code}
               </span>
             </p>
@@ -258,8 +242,7 @@ export default async function LeagueDetailPage({
                   ? `/predictions?competition_code=${leagueCompetitionCode}&league_name=${encodeURIComponent(league.name)}`
                   : `/predictions?league_name=${encodeURIComponent(league.name)}`
               }
-              className="inline-block mt-4 px-5 py-2.5 rounded-lg font-semibold text-sm"
-              style={{ background: THEME.green, color: "#0f172a" }}
+              className="inline-block mt-4 px-6 py-2.5 rounded-lg font-semibold text-sm bg-green-500 hover:bg-green-400 text-slate-900 transition-colors shadow-sm"
             >
               Make predictions
             </Link>

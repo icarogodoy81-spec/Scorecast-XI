@@ -36,18 +36,18 @@ export default async function LeaderboardPage() {
       <div className="max-w-md mx-auto px-4 pb-12 pt-6">
         <Link
           href="/dashboard"
-          className="inline-block mb-6 text-sm text-gray-500 hover:text-green-600"
+          className="inline-block mb-6 text-sm text-slate-400 hover:text-green-400 transition-colors"
         >
           ← Back to Dashboard
         </Link>
 
-        <h1 className="text-xl font-bold mb-6">Choose a league</h1>
+        <h1 className="text-2xl font-bold mb-6 text-white">Choose a league</h1>
         <div className="flex flex-col gap-3">
           {leagues.map((league: any) => (
             <Link
               key={league.id}
               href={`/leagues/${league.id}`}
-              className="block px-4 py-3 rounded-xl border border-gray-200 hover:border-green-500 transition text-center font-medium"
+              className="block px-4 py-4 rounded-xl bg-slate-900/40 backdrop-blur-md border border-white/10 hover:border-green-500/50 hover:bg-slate-800/60 transition-all text-center font-medium text-slate-100 shadow-lg"
             >
               {league.name}
             </Link>

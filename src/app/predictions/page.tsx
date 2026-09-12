@@ -21,19 +21,6 @@ type TeamMeta = {
   shortName?: string;
 };
 
-const THEME = {
-  darkBlue: '#0f172a',
-  darkBlue2: '#111c34',
-  darkBlue3: '#172554',
-  border: '#243b63',
-  text: '#f8fafc',
-  mutedText: '#cbd5e1',
-  inputBg: '#020617',
-  button: '#1e40af',
-  buttonHover: '#2563eb',
-  green: '#16a34a',
-};
-
 const CLUB_COLOURS: Record<string, TeamMeta> = {
   flamengo: { primary: '#c8102e', secondary: '#111111', shortName: 'FLA' },
   palmeiras: { primary: '#006437', secondary: '#ffffff', shortName: 'PAL' },
@@ -307,6 +294,7 @@ function TeamBadge({ name, logo, meta }: { name: string; logo: string | null; me
   const [logoFailed, setLogoFailed] = useState(false);
   const badgeBorderColour = getGradientColour(meta);
 
+  // We keep the inline styles here because these colours are fully dynamic per-team
   const badgeStyle: CSSProperties = {
     background: `linear-gradient(135deg, ${meta.primary}, ${meta.secondary})`,
     borderColor: badgeBorderColour,
@@ -315,14 +303,14 @@ function TeamBadge({ name, logo, meta }: { name: string; logo: string | null; me
 
   if (logo && !logoFailed) {
     return (
-      <div className="badge-wrap" style={badgeStyle}>
+      <div className="badge-wrap shadow-sm border" style={badgeStyle}>
         <img src={logo} alt={`${name} badge`} loading="lazy" onError={() => setLogoFailed(true)} />
       </div>
     );
   }
 
   return (
-    <div className="badge-wrap" style={badgeStyle}>
+    <div className="badge-wrap shadow-sm border font-bold" style={badgeStyle}>
       <span>{meta.shortName || getInitials(name)}</span>
     </div>
   );
@@ -330,11 +318,7 @@ function TeamBadge({ name, logo, meta }: { name: string; logo: string | null; me
 
 export default function PredictionsPage() {
   return (
-    <Suspense
-      fallback={
-        <main style={{ background: THEME.darkBlue, minHeight: '100vh', color: THEME.text }} />
-      }
-    >
+    <Suspense fallback={<main className="min-h-screen text-slate-100" />}>
       <PredictionsContent />
     </Suspense>
   );
@@ -548,309 +532,196 @@ function PredictionsContent() {
     }
   }
 
-  const pageStyle: CSSProperties = { background: THEME.darkBlue, color: THEME.text, minHeight: '100vh' };
-  const shellStyle: CSSProperties = { background: THEME.darkBlue, color: THEME.text };
-  const headerStyle: CSSProperties = {
-    background: `linear-gradient(135deg, ${THEME.darkBlue2}, ${THEME.darkBlue3})`,
-    borderColor: THEME.border,
-    color: THEME.text,
-  };
-  const dateGroupStyle: CSSProperties = {
-    background: THEME.darkBlue2,
-    borderColor: THEME.border,
-    color: THEME.text,
-  };
-
   if (isReady && availableCompetitions.length === 0 && !urlCompetitionCode) {
     return (
-      <main style={shellStyle}>
-        <div
-          style={{
-            ...pageStyle,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <div style={{ textAlign: 'center', padding: '48px 24px' }}>
-            <h1 style={{ color: THEME.text, fontSize: 24, fontWeight: 700 }}>
-              No leagues joined yet
-            </h1>
-            <p style={{ color: THEME.mutedText, marginTop: 8 }}>
-              Join a league to start making predictions.
-            </p>
-            <a
-              href="/leagues"
-              style={{
-                display: 'inline-block',
-                marginTop: 20,
-                padding: '10px 20px',
-                background: THEME.green,
-                color: '#ffffff',
-                borderRadius: 8,
-                fontWeight: 700,
-                textDecoration: 'none',
-              }}
-            >
-              Browse leagues
-            </a>
-          </div>
+      <main className="min-h-screen text-slate-100 p-6 flex flex-col items-center justify-center">
+        <div className="text-center max-w-md bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-2xl p-8 shadow-2xl">
+          <h1 className="text-2xl font-bold text-white mb-2">
+            No leagues joined yet
+          </h1>
+          <p className="text-slate-400 mb-6">
+            Join a league to start making predictions.
+          </p>
+          <a
+            href="/leagues"
+            className="inline-block px-6 py-3 bg-green-600 hover:bg-green-500 text-white rounded-xl font-bold transition-colors"
+          >
+            Browse leagues
+          </a>
         </div>
       </main>
     );
   }
 
-  const topBar = (
-    <>
-      <header
-        className="fixtures-header"
-        style={{
-          ...headerStyle,
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '16px',
-        }}
-      >
-        <div>
-          <p className="eyebrow" style={{ color: '#93c5fd' }}></p>
-          <h1 style={{ color: THEME.text }}>Make your predictions</h1>
-          <p style={{ color: THEME.mutedText }}>{fixtures.length} fixtures available</p>
-        </div>
-
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '6px',
-            minWidth: '200px',
-          }}
-        >
-          <label
-            htmlFor="league-select"
-            style={{ fontSize: 12, color: '#93c5fd', fontWeight: 600, letterSpacing: '0.03em' }}
-          >
-            League
-          </label>
-          
-          {urlCompetitionCode ? (
-            <div
-              style={{
-                width: '100%',
-                background: THEME.inputBg,
-                color: THEME.text,
-                border: `1px solid ${THEME.border}`,
-                borderRadius: 8,
-                padding: '10px 12px',
-                fontSize: 14,
-                fontWeight: 700,
-              }}
-            >
-              {urlLeagueName || 
-                COMPETITIONS.find((c) => c.code.toUpperCase() === urlCompetitionCode.toUpperCase())?.name || 
-                urlCompetitionCode}
-            </div>
-          ) : joinedCodes === null ? (
-            <div
-              style={{
-                width: '100%',
-                background: THEME.inputBg,
-                color: THEME.mutedText,
-                border: `1px solid ${THEME.border}`,
-                borderRadius: 8,
-                padding: '10px 12px',
-                fontSize: 14,
-              }}
-            >
-              Loading…
-            </div>
-          ) : (
-            <select
-              id="league-select"
-              value={selectedCompetitionCode}
-              onChange={(e) => {
-                const code = e.target.value;
-                setSelectedCompetitionCode(code);
-                window.localStorage.setItem('selectedCompetitionCode', code);
-              }}
-              style={{
-                width: '100%',
-                background: THEME.inputBg,
-                color: THEME.text,
-                border: `1px solid ${THEME.border}`,
-                borderRadius: 8,
-                padding: '10px 12px',
-                fontSize: 14,
-                fontWeight: 600,
-                cursor: 'pointer',
-                outline: 'none',
-              }}
-            >
-              {availableCompetitions.map(({ code, name }) => (
-                <option key={code} value={code}>
-                  {name}
-                </option>
-              ))}
-            </select>
-          )}
-        </div>
-      </header>
-
-      <div style={{
-        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-        borderLeft: '4px solid #3b82f6',
-        padding: '12px 16px',
-        marginTop: '20px',
-        borderRadius: '4px',
-        fontSize: '14px',
-        color: THEME.text,
-        lineHeight: '1.5'
-      }}>
-        <strong style={{ color: '#93c5fd' }}>Note:</strong> Match statuses (In Play, Finished) are updated periodically. Points will be awarded once the match result is officially finalized in our system.
-      </div>
-
-      <section className="fixtures-groups">
-        {Object.entries(groupedFixtures).map(([dateLabel, items]) => (
-          <div key={dateLabel} className="fixture-date-group" style={dateGroupStyle}>
-            <h2 style={{ color: THEME.text }}>{dateLabel}</h2>
-
-            <div className="fixtures-grid">
-              {items.map((fixture) => {
-                const fixtureId = String(getFixtureId(fixture));
-                const homeName = getHomeName(fixture);
-                const awayName = getAwayName(fixture);
-                const homeLogo = getHomeLogo(fixture);
-                const awayLogo = getAwayLogo(fixture);
-                const kickoff = getKickoff(fixture);
-                const status = getStatus(fixture);
-                const locked = isLocked(fixture);
-                const homeScore = getHomeScore(fixture);
-                const awayScore = getAwayScore(fixture);
-                const homeMeta = getTeamMeta(homeName);
-                const awayMeta = getTeamMeta(awayName);
-
-                const prediction = predictions[fixtureId] || { home: '', away: '' };
-                const saved = savedPredictions[fixtureId];
-                const isSaving = savingId === fixtureId;
-                const errorMsg = saveError[fixtureId];
-
-                const cardStyle: CSSProperties = {
-                  background: `linear-gradient(135deg, ${THEME.darkBlue}, ${THEME.darkBlue2})`,
-                  borderColor: THEME.border,
-                  color: THEME.text,
-                  boxShadow: '0 18px 40px rgba(0, 0, 0, 0.35)',
-                };
-
-                const inputStyle: CSSProperties = {
-                  background: THEME.inputBg,
-                  borderColor: THEME.border,
-                  color: THEME.text,
-                };
-
-                return (
-                  <article key={fixtureId} className="prediction-card" style={cardStyle}>
-                    <div className="card-top">
-                      <span style={{ color: THEME.text, fontWeight: 700 }}>{formatDate(kickoff)}</span>
-
-                      <span
-                        className={locked ? 'status locked' : 'status'}
-                        style={{
-                          background: locked ? 'rgba(239, 68, 68, 0.18)' : 'rgba(34, 197, 94, 0.18)',
-                          borderColor: locked ? 'rgba(239, 68, 68, 0.45)' : 'rgba(34, 197, 94, 0.45)',
-                          color: locked ? '#fecaca' : '#bbf7d0',
-                        }}
-                      >
-                        {locked ? status || 'Locked' : 'Open'}
-                      </span>
-                    </div>
-
-                    <div className="teams-row">
-                      <div className="team team-home" style={{ color: THEME.text }}>
-                        <TeamBadge name={homeName} logo={homeLogo} meta={homeMeta} />
-                        <strong style={{ color: THEME.text }}>{homeName}</strong>
-                      </div>
-
-                      <div className="score-area">
-                        {locked && homeScore !== null && awayScore !== null ? (
-                          <div
-                            className="final-score"
-                            style={{ background: THEME.inputBg, borderColor: THEME.border, color: THEME.text }}
-                          >
-                            <span>{homeScore}</span>
-                            <small style={{ color: THEME.mutedText }}>-</small>
-                            <span>{awayScore}</span>
-                          </div>
-                        ) : (
-                          <div className="prediction-inputs">
-                            <input
-                              value={prediction.home}
-                              onChange={(e) => updatePrediction(fixtureId, 'home', e.target.value)}
-                              disabled={locked}
-                              inputMode="numeric"
-                              placeholder="0"
-                              style={inputStyle}
-                            />
-                            <span style={{ color: THEME.text }}>-</span>
-                            <input
-                              value={prediction.away}
-                              onChange={(e) => updatePrediction(fixtureId, 'away', e.target.value)}
-                              disabled={locked}
-                              inputMode="numeric"
-                              placeholder="0"
-                              style={inputStyle}
-                            />
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="team team-away" style={{ color: THEME.text }}>
-                        <TeamBadge name={awayName} logo={awayLogo} meta={awayMeta} />
-                        <strong style={{ color: THEME.text }}>{awayName}</strong>
-                      </div>
-                    </div>
-
-                    <button
-                      className="save-button"
-                      disabled={locked || !prediction.home || !prediction.away || isSaving}
-                      onClick={() => savePrediction(fixture)}
-                      style={
-                        saved
-                          ? { background: THEME.green, borderColor: THEME.green, color: '#ffffff' }
-                          : {
-                              background:
-                                locked || !prediction.home || !prediction.away ? '#334155' : THEME.button,
-                              borderColor:
-                                locked || !prediction.home || !prediction.away ? '#475569' : THEME.button,
-                              color: THEME.text,
-                            }
-                      }
-                    >
-                      {locked
-                        ? 'Prediction closed'
-                        : isSaving
-                        ? 'Saving...'
-                        : saved
-                        ? 'Prediction saved'
-                        : 'Save prediction'}
-                    </button>
-
-                    {errorMsg ? (
-                      <p style={{ color: '#fecaca', fontSize: 13, marginTop: 6 }}>{errorMsg}</p>
-                    ) : null}
-                  </article>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </section>
-    </>
-  );
-
   return (
-    <main style={shellStyle}>
-      <div style={pageStyle}>{topBar}</div>
+    <main className="min-h-screen text-slate-100 p-4 md:p-8">
+      <div className="max-w-5xl mx-auto">
+        <header className="fixtures-header bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-xl mb-6 flex flex-wrap items-center justify-between gap-6">
+          <div>
+            <h1 className="text-2xl font-bold text-white">Make your predictions</h1>
+            <p className="text-slate-400 mt-1">{fixtures.length} fixtures available</p>
+          </div>
+
+          <div className="flex flex-col gap-2 min-w-[200px] flex-1 md:flex-none">
+            <label
+              htmlFor="league-select"
+              className="text-xs font-semibold tracking-wider text-blue-400 uppercase"
+            >
+              League
+            </label>
+            
+            {urlCompetitionCode ? (
+              <div className="w-full bg-slate-800/50 border border-white/10 text-white rounded-lg px-4 py-2.5 text-sm font-bold shadow-inner">
+                {urlLeagueName || 
+                  COMPETITIONS.find((c) => c.code.toUpperCase() === urlCompetitionCode.toUpperCase())?.name || 
+                  urlCompetitionCode}
+              </div>
+            ) : joinedCodes === null ? (
+              <div className="w-full bg-slate-800/50 border border-white/10 text-slate-400 rounded-lg px-4 py-2.5 text-sm shadow-inner">
+                Loading…
+              </div>
+            ) : (
+              <select
+                id="league-select"
+                value={selectedCompetitionCode}
+                onChange={(e) => {
+                  const code = e.target.value;
+                  setSelectedCompetitionCode(code);
+                  window.localStorage.setItem('selectedCompetitionCode', code);
+                }}
+                className="w-full bg-slate-800/50 border border-white/10 text-white rounded-lg px-4 py-2.5 text-sm font-semibold cursor-pointer outline-none focus:border-blue-500 shadow-inner"
+              >
+                {availableCompetitions.map(({ code, name }) => (
+                  <option key={code} value={code} className="bg-slate-900">
+                    {name}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+        </header>
+
+        <div className="bg-blue-500/10 backdrop-blur-md border-l-4 border-blue-500 p-4 rounded-r-xl text-sm text-slate-200 mb-8 shadow-md">
+          <strong className="text-blue-400 font-semibold mr-1">Note:</strong> 
+          Match statuses (In Play, Finished) are updated periodically. Points will be awarded once the match result is officially finalized in our system.
+        </div>
+
+        <section className="fixtures-groups space-y-8">
+          {Object.entries(groupedFixtures).map(([dateLabel, items]) => (
+            <div key={dateLabel} className="fixture-date-group bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-xl">
+              <h2 className="text-xl font-bold text-white mb-6 border-b border-white/10 pb-4">{dateLabel}</h2>
+
+              <div className="fixtures-grid grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                {items.map((fixture) => {
+                  const fixtureId = String(getFixtureId(fixture));
+                  const homeName = getHomeName(fixture);
+                  const awayName = getAwayName(fixture);
+                  const homeLogo = getHomeLogo(fixture);
+                  const awayLogo = getAwayLogo(fixture);
+                  const kickoff = getKickoff(fixture);
+                  const status = getStatus(fixture);
+                  const locked = isLocked(fixture);
+                  const homeScore = getHomeScore(fixture);
+                  const awayScore = getAwayScore(fixture);
+                  const homeMeta = getTeamMeta(homeName);
+                  const awayMeta = getTeamMeta(awayName);
+
+                  const prediction = predictions[fixtureId] || { home: '', away: '' };
+                  const saved = savedPredictions[fixtureId];
+                  const isSaving = savingId === fixtureId;
+                  const errorMsg = saveError[fixtureId];
+
+                  return (
+                    <article 
+                      key={fixtureId} 
+                      className="prediction-card bg-white/5 border border-white/10 rounded-xl p-5 shadow-lg flex flex-col gap-5 hover:bg-white/10 transition-colors"
+                    >
+                      <div className="card-top flex justify-between items-center text-sm">
+                        <span className="font-bold text-slate-300">{formatDate(kickoff)}</span>
+                        <span
+                          className={`status px-2.5 py-1 rounded-md text-xs font-bold tracking-wide ${
+                            locked 
+                              ? 'bg-red-500/20 text-red-400 border border-red-500/30' 
+                              : 'bg-green-500/20 text-green-400 border border-green-500/30'
+                          }`}
+                        >
+                          {locked ? status || 'Locked' : 'Open'}
+                        </span>
+                      </div>
+
+                      <div className="teams-row flex items-center justify-between gap-2">
+                        <div className="team team-home flex flex-col items-center flex-1 text-center gap-2">
+                          <TeamBadge name={homeName} logo={homeLogo} meta={homeMeta} />
+                          <strong className="text-sm font-semibold text-white leading-tight">{homeName}</strong>
+                        </div>
+
+                        <div className="score-area shrink-0 mx-2">
+                          {locked && homeScore !== null && awayScore !== null ? (
+                            <div className="final-score bg-black/40 border border-white/10 px-4 py-2 rounded-lg font-bold text-lg text-white text-center shadow-inner">
+                              <span>{homeScore}</span>
+                              <small className="text-slate-500 mx-1">-</small>
+                              <span>{awayScore}</span>
+                            </div>
+                          ) : (
+                            <div className="prediction-inputs flex items-center gap-2">
+                              <input
+                                value={prediction.home}
+                                onChange={(e) => updatePrediction(fixtureId, 'home', e.target.value)}
+                                disabled={locked}
+                                inputMode="numeric"
+                                placeholder="0"
+                                className="w-12 h-12 bg-black/40 border border-white/10 text-white text-center text-lg font-bold rounded-lg focus:outline-none focus:border-blue-500 disabled:opacity-50 shadow-inner transition-colors"
+                              />
+                              <span className="text-slate-500 font-bold">-</span>
+                              <input
+                                value={prediction.away}
+                                onChange={(e) => updatePrediction(fixtureId, 'away', e.target.value)}
+                                disabled={locked}
+                                inputMode="numeric"
+                                placeholder="0"
+                                className="w-12 h-12 bg-black/40 border border-white/10 text-white text-center text-lg font-bold rounded-lg focus:outline-none focus:border-blue-500 disabled:opacity-50 shadow-inner transition-colors"
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="team team-away flex flex-col items-center flex-1 text-center gap-2">
+                          <TeamBadge name={awayName} logo={awayLogo} meta={awayMeta} />
+                          <strong className="text-sm font-semibold text-white leading-tight">{awayName}</strong>
+                        </div>
+                      </div>
+
+                      <button
+                        className={`save-button w-full py-3 rounded-xl font-bold text-sm transition-all shadow-md ${
+                          saved
+                            ? 'bg-green-600 hover:bg-green-500 text-white'
+                            : locked || !prediction.home || !prediction.away
+                            ? 'bg-slate-800/50 text-slate-500 cursor-not-allowed border border-white/5'
+                            : 'bg-blue-600 hover:bg-blue-500 text-white'
+                        }`}
+                        disabled={locked || !prediction.home || !prediction.away || isSaving}
+                        onClick={() => savePrediction(fixture)}
+                      >
+                        {locked
+                          ? 'Prediction closed'
+                          : isSaving
+                          ? 'Saving...'
+                          : saved
+                          ? 'Prediction saved ✓'
+                          : 'Save prediction'}
+                      </button>
+
+                      {errorMsg && (
+                        <p className="text-red-400 text-sm text-center font-medium bg-red-500/10 p-2 rounded-lg">{errorMsg}</p>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </section>
+      </div>
     </main>
   );
 }

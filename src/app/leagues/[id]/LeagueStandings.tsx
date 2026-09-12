@@ -25,16 +25,6 @@ type Standing = {
   predictions: PredictionDetail[];
 };
 
-const THEME = {
-  cardBg: "#1e293b",
-  border: "#334155",
-  mutedText: "#94a3b8",
-  text: "#f8fafc",
-  accent: "#93c5fd",
-  green: "#4ade80",
-  inputBg: "#020617",
-};
-
 type TeamMeta = { primary: string; secondary: string; shortName?: string };
 
 const CLUB_COLOURS: Record<string, TeamMeta> = {
@@ -182,12 +172,12 @@ function TeamBadge({ name, logoMap }: { name: string; logoMap: Record<string, st
     return (
       <div
         style={style}
-        className="w-10 h-10 rounded-full border flex items-center justify-center overflow-hidden shrink-0"
+        className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center overflow-hidden shrink-0 shadow-sm"
       >
         <img
           src={logo}
           alt={`${name} badge`}
-          className="w-full h-full object-contain"
+          className="w-full h-full object-contain bg-white/80"
           onError={() => setFailed(true)}
         />
       </div>
@@ -197,7 +187,7 @@ function TeamBadge({ name, logoMap }: { name: string; logoMap: Record<string, st
   return (
     <div
       style={style}
-      className="w-10 h-10 rounded-full border flex items-center justify-center text-xs font-bold shrink-0"
+      className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center text-xs font-bold shrink-0 shadow-sm"
     >
       {meta.shortName}
     </div>
@@ -230,26 +220,23 @@ export default function LeagueStandings({
 
   return (
     <>
-      <div
-        style={{ background: THEME.cardBg, border: `1px solid ${THEME.border}`, color: THEME.text }}
-        className="rounded-xl overflow-hidden"
-      >
-        <div style={{ borderBottom: `1px solid ${THEME.border}` }} className="px-4 py-3">
-          <h2 style={{ color: THEME.mutedText }} className="text-sm font-semibold uppercase tracking-wide">
+      <div className="bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden shadow-xl">
+        <div className="border-b border-white/10 px-4 py-3 bg-white/5">
+          <h2 className="text-slate-300 text-sm font-semibold uppercase tracking-wide">
             Standings ({standings.length} players)
           </h2>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm text-slate-100">
             <thead>
-              <tr style={{ color: THEME.mutedText, borderBottom: `1px solid ${THEME.border}` }} className="text-left">
-                <th className="px-4 py-2 font-semibold">Rank</th>
-                <th className="px-4 py-2 font-semibold">Player</th>
-                <th className="px-4 py-2 font-semibold text-center">Points</th>
-                <th className="px-4 py-2 font-semibold text-center">Exact Score</th>
-                <th className="px-4 py-2 font-semibold text-center">Goal Diff</th>
-                <th className="px-4 py-2 font-semibold text-center">Correct Result</th>
+              <tr className="text-left border-b border-white/10 bg-black/20 text-slate-300">
+                <th className="px-4 py-3 font-semibold">Rank</th>
+                <th className="px-4 py-3 font-semibold">Player</th>
+                <th className="px-4 py-3 font-semibold text-center">Points</th>
+                <th className="px-4 py-3 font-semibold text-center">Exact Score</th>
+                <th className="px-4 py-3 font-semibold text-center">Goal Diff</th>
+                <th className="px-4 py-3 font-semibold text-center">Correct Result</th>
               </tr>
             </thead>
             <tbody>
@@ -257,22 +244,21 @@ export default function LeagueStandings({
                 <tr
                   key={s.userId}
                   onClick={() => setSelected(s)}
-                  style={{ borderTop: `1px solid ${THEME.border}` }}
-                  className="cursor-pointer hover:bg-white/5 transition"
+                  className="cursor-pointer hover:bg-white/10 transition-colors border-t border-white/5"
                 >
-                  <td style={{ color: THEME.mutedText }} className="px-4 py-3 font-bold">{i + 1}</td>
+                  <td className="px-4 py-3 font-bold text-slate-400">{i + 1}</td>
                   <td className="px-4 py-3">
-                    <span className={s.userId === currentUserId ? "font-bold" : "font-medium"}>
+                    <span className={s.userId === currentUserId ? "font-bold text-white" : "font-medium"}>
                       {s.username}
                     </span>
                     {s.userId === currentUserId && (
-                      <span style={{ color: THEME.green }} className="text-xs ml-1">(you)</span>
+                      <span className="text-green-400 text-xs ml-2">(you)</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-center font-bold">{s.points}</td>
-                  <td className="px-4 py-3 text-center">{s.exactScores}</td>
-                  <td className="px-4 py-3 text-center">{s.goalDiff}</td>
-                  <td className="px-4 py-3 text-center">{s.correctResult}</td>
+                  <td className="px-4 py-3 text-center font-bold text-blue-400">{s.points}</td>
+                  <td className="px-4 py-3 text-center text-slate-300">{s.exactScores}</td>
+                  <td className="px-4 py-3 text-center text-slate-300">{s.goalDiff}</td>
+                  <td className="px-4 py-3 text-center text-slate-300">{s.correctResult}</td>
                 </tr>
               ))}
             </tbody>
@@ -282,31 +268,26 @@ export default function LeagueStandings({
 
       {selected && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 px-4"
           onClick={() => setSelected(null)}
         >
           <div
-            style={{ background: THEME.cardBg, color: THEME.text, border: `1px solid ${THEME.border}` }}
-            className="rounded-xl max-w-lg w-full max-h-[80vh] overflow-y-auto"
+            className="bg-slate-900/80 backdrop-blur-md text-slate-100 border border-white/20 rounded-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div
-              style={{ borderBottom: `1px solid ${THEME.border}` }}
-              className="px-5 py-4 flex items-center justify-between sticky top-0"
-            >
-              <h3 className="font-bold">{selected.username}&apos;s predictions</h3>
+            <div className="border-b border-white/10 px-5 py-4 flex items-center justify-between sticky top-0 bg-slate-900/90 backdrop-blur-md z-10">
+              <h3 className="font-bold text-lg">{selected.username}&apos;s predictions</h3>
               <button
                 onClick={() => setSelected(null)}
-                style={{ color: THEME.mutedText }}
-                className="hover:text-white text-xl leading-none"
+                className="text-slate-400 hover:text-white text-2xl leading-none transition-colors"
               >
                 &times;
               </button>
             </div>
 
-            <div className="px-5 py-4 flex flex-col gap-3">
+            <div className="px-5 py-5 flex flex-col gap-3 bg-gradient-to-b from-transparent to-black/20">
               {selected.predictions.length === 0 && (
-                <p style={{ color: THEME.mutedText }} className="text-sm">
+                <p className="text-slate-400 text-sm text-center py-4">
                   No matches started yet.
                 </p>
               )}
@@ -314,33 +295,29 @@ export default function LeagueStandings({
               {selected.predictions.map((p) => (
                 <div
                   key={p.matchId}
-                  style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${THEME.border}` }}
-                  className="rounded-lg p-3"
+                  className="bg-white/5 border border-white/10 rounded-xl p-4 shadow-sm hover:bg-white/10 transition-colors"
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2 min-w-0">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
                       <TeamBadge name={p.homeTeam} logoMap={logoMap} />
-                      <span className="text-xs font-medium truncate">{p.homeTeam}</span>
+                      <span className="text-sm font-medium truncate">{p.homeTeam}</span>
                     </div>
 
-                    <div
-                      style={{ background: THEME.inputBg, border: `1px solid ${THEME.border}` }}
-                      className="rounded-md px-3 py-1 font-bold text-sm mx-2 shrink-0"
-                    >
+                    <div className="bg-black/40 border border-white/5 rounded-lg px-4 py-1.5 font-bold text-base mx-2 shrink-0 shadow-inner">
                       {p.actualHome} - {p.actualAway}
                     </div>
 
-                    <div className="flex items-center gap-2 min-w-0 justify-end">
-                      <span className="text-xs font-medium truncate">{p.awayTeam}</span>
+                    <div className="flex items-center gap-2 min-w-0 flex-1 justify-end">
+                      <span className="text-sm font-medium truncate text-right">{p.awayTeam}</span>
                       <TeamBadge name={p.awayTeam} logoMap={logoMap} />
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between text-xs" style={{ color: THEME.mutedText }}>
-                    <span>
-                      Guessed <strong style={{ color: THEME.text }}>{p.predictedHome} - {p.predictedAway}</strong> · {p.outcome}
+                  <div className="flex items-center justify-between text-xs pt-3 border-t border-white/5">
+                    <span className="text-slate-400">
+                      Guessed <strong className="text-white bg-white/10 px-1.5 py-0.5 rounded ml-1 mr-1">{p.predictedHome} - {p.predictedAway}</strong> · {p.outcome}
                     </span>
-                    <span style={{ color: THEME.green }} className="font-bold">
+                    <span className="text-green-400 font-bold bg-green-400/10 px-2 py-1 rounded-md">
                       {p.points} pts
                     </span>
                   </div>

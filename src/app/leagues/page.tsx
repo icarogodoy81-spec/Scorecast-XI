@@ -140,98 +140,112 @@ export default function LeaguesPage() {
     setMessage(`Joined ${league.name}!`);
   }
 
-  const inputStyle = {
-    padding: "10px 14px",
-    borderRadius: 8,
-    marginRight: 10,
-    background: "#111c34",
-    border: "1px solid #243b63",
-    color: "#f8fafc",
-  };
-
-  const buttonStyle = {
-    padding: "10px 16px",
-    borderRadius: 8,
-    background: "#2563eb",
-    color: "#fff",
-    border: "none",
-    fontWeight: 600,
-    cursor: "pointer",
-  };
-
   return (
-    <main style={{ minHeight: "100vh", background: "#0f172a", color: "#fff", padding: 40 }}>
-      <div style={{ maxWidth: 600, margin: "0 auto" }}>
-        <div style={{ display: "flex", alignItems: "center", marginBottom: 20 }}>
-          <Image src="/images/logo.png" alt="Scorecast XI" width={443} height={319} />
+    <main className="min-h-screen text-slate-100 p-6 md:p-10">
+      <div className="max-w-2xl mx-auto space-y-8">
+        <div className="flex items-center justify-center mb-6">
+          <Image 
+            src="/images/logo.png" 
+            alt="Scorecast XI" 
+            width={443} 
+            height={319} 
+            className="w-full max-w-[280px] h-auto"
+            priority
+          />
         </div>
 
-        <Link href="/dashboard" style={{ color: "#93c5fd" }}>
+        <Link 
+          href="/dashboard" 
+          className="inline-block text-slate-400 hover:text-blue-400 transition-colors"
+        >
           &larr; Back to dashboard
         </Link>
 
-        <h1 style={{ marginTop: 20 }}>Private Leagues</h1>
+        <h1 className="text-3xl font-bold text-white">Private Leagues</h1>
 
         {loading ? (
-          <p>Loading...</p>
+          <p className="text-blue-400">Loading...</p>
         ) : (
-          <>
-            <section style={{ marginTop: 30 }}>
-              <h2>Create a league</h2>
-              <input
-                value={newLeagueName}
-                onChange={(e) => setNewLeagueName(e.target.value)}
-                placeholder="League name"
-                style={inputStyle}
-              />
-              <select
-                value={newLeagueCompetition}
-                onChange={(e) => setNewLeagueCompetition(e.target.value)}
-                style={inputStyle}
-              >
-                {COMPETITIONS.map((c) => (
-                  <option key={c.code} value={c.code}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-              <button onClick={handleCreate} style={buttonStyle}>
-                Create
-              </button>
+          <div className="space-y-6">
+            
+            {/* Create League Section */}
+            <section className="bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-xl">
+              <h2 className="text-xl font-semibold mb-4 text-white">Create a league</h2>
+              <div className="flex flex-col md:flex-row gap-3">
+                <input
+                  value={newLeagueName}
+                  onChange={(e) => setNewLeagueName(e.target.value)}
+                  placeholder="League name"
+                  className="flex-1 bg-slate-800/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-blue-500"
+                />
+                <select
+                  value={newLeagueCompetition}
+                  onChange={(e) => setNewLeagueCompetition(e.target.value)}
+                  className="flex-1 bg-slate-800/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-blue-500"
+                >
+                  {COMPETITIONS.map((c) => (
+                    <option key={c.code} value={c.code} className="bg-slate-800">
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+                <button 
+                  onClick={handleCreate} 
+                  className="bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg px-6 py-2.5 transition-colors"
+                >
+                  Create
+                </button>
+              </div>
             </section>
 
-            <section style={{ marginTop: 30 }}>
-              <h2>Join a league</h2>
-              <input
-                value={joinCode}
-                onChange={(e) => setJoinCode(e.target.value)}
-                placeholder="Invite code"
-                style={inputStyle}
-              />
-              <button onClick={handleJoin} style={buttonStyle}>
-                Join
-              </button>
+            {/* Join League Section */}
+            <section className="bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-xl">
+              <h2 className="text-xl font-semibold mb-4 text-white">Join a league</h2>
+              <div className="flex flex-col md:flex-row gap-3">
+                <input
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value)}
+                  placeholder="Invite code"
+                  className="flex-1 bg-slate-800/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-blue-500"
+                />
+                <button 
+                  onClick={handleJoin} 
+                  className="bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg px-6 py-2.5 transition-colors"
+                >
+                  Join
+                </button>
+              </div>
             </section>
 
-            {message && <p style={{ marginTop: 20, color: "#fde047" }}>{message}</p>}
+            {message && (
+              <p className="text-yellow-400 font-medium px-2">{message}</p>
+            )}
 
-            <section style={{ marginTop: 30 }}>
-              <h2>My leagues</h2>
+            {/* My Leagues Section */}
+            <section className="bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-xl">
+              <h2 className="text-xl font-semibold mb-4 text-white">My leagues</h2>
               {myLeagues.length === 0 ? (
-                <p>No leagues yet.</p>
+                <p className="text-slate-400">No leagues yet.</p>
               ) : (
-                <ul>
+                <ul className="space-y-3">
                   {myLeagues.map((l) => (
-                    <li key={l.id} style={{ marginBottom: 10 }}>
-                      <Link href={`/leagues/${l.id}`} style={{ color: "#93c5fd" }}>
-                        <strong>{l.name}</strong> ({l.competition_code}) — code: <code>{l.invite_code}</code>
+                    <li key={l.id} className="bg-white/5 border border-white/5 rounded-xl p-4 hover:bg-white/10 transition-colors">
+                      <Link href={`/leagues/${l.id}`} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div>
+                          <strong className="text-blue-400 text-lg block">{l.name}</strong>
+                          <span className="text-sm text-slate-400">{l.competition_code}</span>
+                        </div>
+                        <div className="text-sm bg-black/30 px-3 py-1.5 rounded-md font-mono text-slate-300">
+                          code: <span className="text-white">{l.invite_code}</span>
+                        </div>
                       </Link>
                     </li>
                   ))}
                 </ul>
               )}
             </section>
-          </>
+
+          </div>
         )}
       </div>
     </main>
