@@ -3,7 +3,6 @@
 
 import { CSSProperties, Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import '../fixtures/fixtures.css';
 import { COMPETITIONS } from '@/lib/competitions';
 
 type Fixture = any;
@@ -294,7 +293,6 @@ function TeamBadge({ name, logo, meta }: { name: string; logo: string | null; me
   const [logoFailed, setLogoFailed] = useState(false);
   const badgeBorderColour = getGradientColour(meta);
 
-  // We keep the inline styles here because these colours are fully dynamic per-team
   const badgeStyle: CSSProperties = {
     background: `linear-gradient(135deg, ${meta.primary}, ${meta.secondary})`,
     borderColor: badgeBorderColour,
@@ -303,14 +301,14 @@ function TeamBadge({ name, logo, meta }: { name: string; logo: string | null; me
 
   if (logo && !logoFailed) {
     return (
-      <div className="badge-wrap shadow-sm border" style={badgeStyle}>
-        <img src={logo} alt={`${name} badge`} loading="lazy" onError={() => setLogoFailed(true)} />
+      <div className="w-14 h-14 rounded-xl shadow-sm border flex items-center justify-center overflow-hidden shrink-0" style={badgeStyle}>
+        <img src={logo} alt={`${name} badge`} className="w-full h-full object-contain p-1.5" loading="lazy" onError={() => setLogoFailed(true)} />
       </div>
     );
   }
 
   return (
-    <div className="badge-wrap shadow-sm border font-bold" style={badgeStyle}>
+    <div className="w-14 h-14 rounded-xl shadow-sm border flex items-center justify-center overflow-hidden shrink-0 font-bold text-sm" style={badgeStyle}>
       <span>{meta.shortName || getInitials(name)}</span>
     </div>
   );
