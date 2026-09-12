@@ -556,7 +556,7 @@ function PredictionsContent() {
   return (
     <main className="min-h-screen text-slate-100 p-4 md:p-8">
       <div className="max-w-5xl mx-auto">
-        <header className="fixtures-header bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-xl mb-6 flex flex-wrap items-center justify-between gap-6">
+        <header className="bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-xl mb-6 flex flex-wrap items-center justify-between gap-6">
           <div>
             <h1 className="text-2xl font-bold text-white">Make your predictions</h1>
             <p className="text-slate-400 mt-1">{fixtures.length} fixtures available</p>
@@ -606,12 +606,12 @@ function PredictionsContent() {
           Match statuses (In Play, Finished) are updated periodically. Points will be awarded once the match result is officially finalized in our system.
         </div>
 
-        <section className="fixtures-groups space-y-8">
+        <section className="space-y-8">
           {Object.entries(groupedFixtures).map(([dateLabel, items]) => (
-            <div key={dateLabel} className="fixture-date-group bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-xl">
+            <div key={dateLabel} className="bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-xl">
               <h2 className="text-xl font-bold text-white mb-6 border-b border-white/10 pb-4">{dateLabel}</h2>
 
-              <div className="fixtures-grid grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                 {items.map((fixture) => {
                   const fixtureId = String(getFixtureId(fixture));
                   const homeName = getHomeName(fixture);
@@ -634,12 +634,12 @@ function PredictionsContent() {
                   return (
                     <article 
                       key={fixtureId} 
-                      className="prediction-card bg-white/5 border border-white/10 rounded-xl p-5 shadow-lg flex flex-col gap-5 hover:bg-white/10 transition-colors"
+                      className="bg-white/5 border border-white/10 rounded-xl p-5 shadow-lg flex flex-col gap-5 hover:bg-white/10 transition-colors"
                     >
-                      <div className="card-top flex justify-between items-center text-sm">
+                      <div className="flex justify-between items-center text-sm">
                         <span className="font-bold text-slate-300">{formatDate(kickoff)}</span>
                         <span
-                          className={`status px-2.5 py-1 rounded-md text-xs font-bold tracking-wide ${
+                          className={`px-2.5 py-1 rounded-md text-xs font-bold tracking-wide ${
                             locked 
                               ? 'bg-red-500/20 text-red-400 border border-red-500/30' 
                               : 'bg-green-500/20 text-green-400 border border-green-500/30'
@@ -649,21 +649,21 @@ function PredictionsContent() {
                         </span>
                       </div>
 
-                      <div className="teams-row flex items-center justify-between gap-2">
-                        <div className="team team-home flex flex-col items-center flex-1 text-center gap-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex flex-col items-center flex-1 text-center gap-2">
                           <TeamBadge name={homeName} logo={homeLogo} meta={homeMeta} />
                           <strong className="text-sm font-semibold text-white leading-tight">{homeName}</strong>
                         </div>
 
-                        <div className="score-area shrink-0 mx-2">
+                        <div className="shrink-0 mx-2">
                           {locked && homeScore !== null && awayScore !== null ? (
-                            <div className="final-score bg-black/40 border border-white/10 px-4 py-2 rounded-lg font-bold text-lg text-white text-center shadow-inner">
+                            <div className="bg-black/40 border border-white/10 px-4 py-2 rounded-lg font-bold text-lg text-white text-center shadow-inner">
                               <span>{homeScore}</span>
                               <small className="text-slate-500 mx-1">-</small>
                               <span>{awayScore}</span>
                             </div>
                           ) : (
-                            <div className="prediction-inputs flex items-center gap-2">
+                            <div className="flex items-center gap-2">
                               <input
                                 value={prediction.home}
                                 onChange={(e) => updatePrediction(fixtureId, 'home', e.target.value)}
@@ -685,14 +685,14 @@ function PredictionsContent() {
                           )}
                         </div>
 
-                        <div className="team team-away flex flex-col items-center flex-1 text-center gap-2">
+                        <div className="flex flex-col items-center flex-1 text-center gap-2">
                           <TeamBadge name={awayName} logo={awayLogo} meta={awayMeta} />
                           <strong className="text-sm font-semibold text-white leading-tight">{awayName}</strong>
                         </div>
                       </div>
 
                       <button
-                        className={`save-button w-full py-3 rounded-xl font-bold text-sm transition-all shadow-md ${
+                        className={`w-full py-3 rounded-xl font-bold text-sm transition-all shadow-md ${
                           saved
                             ? 'bg-green-600 hover:bg-green-500 text-white'
                             : locked || !prediction.home || !prediction.away
