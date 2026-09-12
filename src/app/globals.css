@@ -1,4 +1,4 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Manrope:wght@400;600;700;800&display=swap');
 
 * {
@@ -30,8 +30,7 @@ body {
   font-size: 16px;
 }
 
-/* Main page wrapper */
-main,
+/* Page wrappers (removed generic 'main' to allow full-bleed landing pages) */
 .dashboard-shell,
 .dashboard-container,
 .page-shell {
@@ -132,7 +131,6 @@ nav,
 /* Style nav links as secondary arcade buttons */
 nav a,
 .dashboard-nav a,
-main > a,
 .dashboard-shell > a,
 .dashboard-container > a {
   display: inline-flex;
@@ -153,7 +151,6 @@ main > a,
 
 nav a:hover,
 .dashboard-nav a:hover,
-main > a:hover,
 .dashboard-shell > a:hover,
 .dashboard-container > a:hover {
   background: linear-gradient(180deg, #334155 0%, #1e293b 100%);
@@ -233,8 +230,10 @@ nav a.logo-link:hover {
   text-shadow: 0 0 15px rgba(74, 222, 128, 0.2);
 }
 
-/* If the account details are plain text paragraphs */
-main > p {
+/* Account details plain text paragraphs */
+.dashboard-shell > p,
+.dashboard-container > p,
+.page-shell > p {
   margin: 10px 0;
 }
 
@@ -302,7 +301,6 @@ body > div {
 /* ===== Responsive breakpoints ===== */
 
 @media (max-width: 850px) {
-  main,
   .dashboard-shell,
   .dashboard-container,
   .page-shell {
@@ -333,7 +331,6 @@ body > div {
 
   nav a,
   .dashboard-nav a,
-  main > a,
   .dashboard-shell > a,
   .dashboard-container > a {
     flex: 1 1 auto;
@@ -363,7 +360,6 @@ body > div {
   h1 { font-size: 30px; }
   h2 { font-size: 22px; }
 
-  main,
   .dashboard-shell,
   .dashboard-container,
   .page-shell {
