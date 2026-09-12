@@ -1,0 +1,173 @@
+1. Expanded Achievement Badges System
+To make badges meaningful, they need to be tied to specific user behaviors and milestones.
+
+Badge Categories:
+
+Accuracy Badges: "Sniper" (5 exact scores in a week), "Perfect Weekend" (100% correct outcomes in a specific league round).
+Behavioral Badges: "Early Bird" (submitted all predictions 48h before kickoff), "Buzzer Beater" (submitted a prediction less than 5 minutes before kickoff).
+Loyalty Badges: "Centurion" (100 predictions made), "Die-Hard" (played 30 consecutive days).
+Rarity Badges: "The Oracle" (predicted a 0-0 draw that actually happened).
+Supabase Implementation Logic: Instead of calculating badges on the fly, use a Supabase Edge Function triggered by a database webhook on the predictions or match_results update.
+
+sql
+
+
+-- Enhanced Badge Schema
+CREATE TABLE badges (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT UNIQUE NOT NULL,
+  description TEXT NOT NULL,
+  tier TEXT CHECK (tier IN ('bronze', 'silver', 'gold', 'platinum')),
+  condition_type TEXT NOT NULL, -- e.g., 'exact_scores_total', 'streak_length'
+  condition_value INT NOT NULL,
+  icon_url TEXT
+);
+
+CREATE TABLE user_badges (
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  badge_id UUID REFERENCES badges(id) ON DELETE CASCADE,
+  unlocked_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  is_new BOOLEAN DEFAULT TRUE, -- Used to trigger frontend celebration animations
+  PRIMARY KEY (user_id, badge_id)
+);
+2. Private Mini-Leagues (User Acquisition & Retention)
+Global leaderboards get stale for users who join late. Allowing users to create private leagues with invite codes drives organic growth as they invite friends/coworkers.
+
+Architecture:
+
+sql
+
+
+CREATE TABLE private_leagues (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  owner_id UUID REFERENCES profiles(id),
+  name TEXT NOT NULL,
+  invite_code TEXT UNIQUE DEFAULT substring(md5(random()::text) from 1 for 8),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE private_league_members (
+  league_id UUID REFERENCES private_leagues(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  PRIMARY KEY (league_id, user_id)
+);
+
+-- View to calculate private league standings dynamically
+CREATE OR REPLACE VIEW private_league_standings AS
+SELECT 
+  plm.league_id,
+  p.id AS user_id,
+  p.username,
+  p.total_points, -- Or calculate points specifically for the timeframe of the league
+  RANK() OVER (PARTITION BY plm.league_id ORDER BY p.total_points DESC) as rank
+FROM private_league_members plm
+JOIN profiles p ON plm.user_id = p.id;
+3. Tactical Boosters (Multipliers)
+Give users a limited number of "Boosts" per game week (similar to Fantasy Premier League's "Triple Captain"). This adds a layer of strategy beyond just guessing the score.
+
+The "Joker" / "Banker": The user selects one match per week where they are highly confident. Points earned for this match are doubled.
+Implementation:
+sql
+
+
+-- Alter predictions table to include booster flags
+ALTER TABLE predictions
+ADD COLUMN is_joker BOOLEAN DEFAULT FALSE;
+
+-- Create a function to validate only 1 joker per user per game week
+CREATE OR REPLACE FUNCTION check_joker_limit() 
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.is_joker = TRUE THEN
+    IF (
+      SELECT COUNT(*) 
+      FROM predictions p
+      JOIN matches m ON p.match_id = m.id
+      WHERE p.user_id = NEW.user_id 
+      AND p.is_joker = TRUE 
+      AND m.gameweek = (SELECT gameweek FROM matches WHERE id = NEW.match_id)
+    ) > 0 THEN
+      RAISE EXCEPTION 'Only one Joker allowed per gameweek';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER enforce_joker_limit
+BEFORE INSERT OR UPDATE ON predictions
+FOR EACH ROW EXECUTE FUNCTION check_joker_limit();
+4. Unlockable Profile Customization (Economy)
+Tie the points or badges back into the UI. Give users a reason to hoard points or unlock rare badges.
+
+Features: Custom avatars, profile borders, username colors, or custom titles (e.g., "Tactical Genius").
+Implementation: Add a cosmetics table and a user_cosmetics table. When fetching the user profile in Next.js, join their equipped cosmetics to style their appearance on the leaderboards and in private leagues.
+5. Head-to-Head (H2H) Matchups
+Instead of just accumulating points against a leaderboard, users are paired against another user in their mini-league every weekend.
+
+User A's total weekend points vs User B's total weekend points.
+Winner gets 3 points in a separate H2H table.
+This keeps users engaged even if they have a bad week, as they only need to beat their direct opponent, not the entire server.
+
+
+Okay, I like all of that. Make me a list as you were the project manager to implement these badges. I want the rewards to be like "unlock another league" (because to play 1 + league they have to pay)
+Gemini 3.1 Pro
+Alright, Icaro. Stepping into the Project Manager role, here is the implementation roadmap for the Achievement Badges system, specifically designed to hook into your monetization model by rewarding users with free league unlocks.
+
+To make this work, we need to bridge the gap between "earning a badge" and "modifying subscription/access limits." We will introduce the concept of an Access Quota in your database.
+
+Here is the phase-by-phase project plan.
+
+Phase 1: Database Architecture & Access Control (Supabase)
+Objective: Set up the data structure to track badges, their specific rewards, and the user's league access limits.
+
+Task 1.1: Update Profile Schema for League Access
+Action: Add columns to profiles to track how many leagues a user is allowed to join versus how many they are currently in.
+Implementation: Add base_allowed_leagues (default 1) and bonus_allowed_leagues (default 0). Total allowed = base + bonus + paid_subscription_leagues.
+Task 2.2: Create the badges Table
+Action: Define the badges and flag which ones grant premium rewards.
+Schema Needs: id, name, description, icon_name, condition_type, condition_target (int), and critically, grants_league_unlock (boolean default false).
+Task 1.3: Create the user_badges Table
+Action: Track which users have earned which badges.
+Schema Needs: user_id, badge_id, unlocked_at, and is_acknowledged (boolean default false - to trigger the frontend notification).
+Task 1.4: Build the Reward Trigger
+Action: Create a Supabase Database Trigger on the user_badges table.
+Logic: AFTER INSERT ON user_badges, check if the badge_id has grants_league_unlock = true. If yes, increment the user's bonus_allowed_leagues by 1 in the profiles table.
+Phase 2: The Evaluation Engine (Backend)
+Objective: Reliably detect when a user has met the criteria for a badge without causing performance bottlenecks when football-api dumps match results.
+
+Task 2.1: Define Badge Criteria Logic
+Action: Map out exactly what triggers the high-value badges.
+Examples: "Sniper" (5 exact scores total), "Loyalist" (predictions made in 10 consecutive gameweeks).
+Task 2.2: Implement Evaluation Strategy
+Action: Decide when to check for badges. Do not check on every single page load.
+Implementation: Write a Supabase Edge Function called evaluate_user_badges. Trigger this function asynchronously via a webhook only after a match result is finalized and points are distributed, or run it as a daily cron job via pg_cron.
+Phase 3: Frontend Implementation (Next.js)
+Objective: Build the UI to display badges, celebrate unlocks, and handle the "Unlock a League" flow.
+
+Task 3.1: The Achievements Page/Component
+Action: Create a /achievements route or a profile tab.
+Implementation: Fetch all badges from Supabase. Cross-reference with user_badges to show unlocked badges in full color and locked badges in grayscale with a progress indicator or description.
+Task 3.2: The Celebration Modal (Dopamine Hit)
+Action: Notify the user they earned a premium reward.
+Implementation: Create a global layout listener. If user_badges has an entry where is_acknowledged = false, pop up a modal: "Congratulations! You unlocked the Sniper badge. You have been rewarded with +1 Free League Unlock!" Send a mutation to set is_acknowledged = true when closed.
+Task 3.3: Update the Paywall / League Selection UI
+Action: Modify the screen where users currently hit the paywall for joining a second league.
+Implementation:
+Check user's total allowed leagues.
+If they try to join a new league, check if current_leagues < (base + bonus + paid).
+If they have a bonus slot available, change the CTA from "Pay to Unlock" to "Use Free Unlock Token".
+Phase 4: Edge Cases & Quality Assurance
+Objective: Ensure the economy isn't broken and users can't exploit the system.
+
+Task 4.1: Downgrade/Removal Logic
+Action: Define what happens if a user leaves a league they unlocked for free. Do they get the token back? (Recommendation: Yes, make bonus_allowed_leagues a capacity limit, not a consumable).
+Task 4.2: Payment Gateway Collision Check
+Action: Ensure your existing Stripe (or other provider) logic doesn't conflict.
+Implementation: Make sure the system checks total_allowed_leagues dynamically rather than just checking a has_paid boolean, so both paying users and badge-earners can access the same component seamlessly.
+Task 4.3: RLS (Row Level Security) Enforcement
+Action: Secure the tables.
+Implementation: Ensure users can strictly SELECT from user_badges. Only the service role (via your Edge Function/Trigger) should be able to INSERT into user_badges or modify bonus_allowed_leagues. Do not allow frontend inserts to prevent users from granting themselves free leagues via the browser console.
+
+
