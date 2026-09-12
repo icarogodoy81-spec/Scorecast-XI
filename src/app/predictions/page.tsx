@@ -316,7 +316,7 @@ function TeamBadge({ name, logo, meta }: { name: string; logo: string | null; me
 
 export default function PredictionsPage() {
   return (
-    <Suspense fallback={<main className="min-h-screen bg-slate-50 text-slate-900" />}>
+    <Suspense fallback={<main className="min-h-screen bg-slate-950 text-slate-100" />}>
       <PredictionsContent />
     </Suspense>
   );
@@ -532,12 +532,12 @@ function PredictionsContent() {
 
   if (isReady && availableCompetitions.length === 0 && !urlCompetitionCode) {
     return (
-      <main className="min-h-screen bg-slate-50 text-slate-900 p-6 flex flex-col items-center justify-center">
-        <div className="text-center max-w-md bg-white border border-slate-200 rounded-2xl p-8 shadow-lg">
-          <h1 className="text-2xl font-bold text-slate-900 mb-2">
+      <main className="min-h-screen text-slate-100 p-6 flex flex-col items-center justify-center">
+        <div className="text-center max-w-md bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-2xl p-8 shadow-xl">
+          <h1 className="text-2xl font-bold text-white mb-2">
             No leagues joined yet
           </h1>
-          <p className="text-slate-500 mb-6">
+          <p className="text-slate-400 mb-6">
             Join a league to start making predictions.
           </p>
           <a
@@ -552,30 +552,30 @@ function PredictionsContent() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900 p-4 md:p-8">
+    <main className="min-h-screen text-slate-100 p-4 md:p-8">
       <div className="max-w-5xl mx-auto">
-        <header className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm mb-6 flex flex-wrap items-center justify-between gap-6">
+        <header className="bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-xl mb-6 flex flex-wrap items-center justify-between gap-6">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Make your predictions</h1>
-            <p className="text-slate-500 mt-1">{fixtures.length} fixtures available</p>
+            <h1 className="text-2xl font-bold text-white">Make your predictions</h1>
+            <p className="text-slate-400 mt-1">{fixtures.length} fixtures available</p>
           </div>
 
           <div className="flex flex-col gap-2 min-w-[200px] flex-1 md:flex-none">
             <label
               htmlFor="league-select"
-              className="text-xs font-semibold tracking-wider text-blue-600 uppercase"
+              className="text-xs font-semibold tracking-wider text-blue-400 uppercase"
             >
               League
             </label>
-            
+
             {urlCompetitionCode ? (
-              <div className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-lg px-4 py-2.5 text-sm font-bold shadow-inner">
-                {urlLeagueName || 
-                  COMPETITIONS.find((c) => c.code.toUpperCase() === urlCompetitionCode.toUpperCase())?.name || 
+              <div className="w-full bg-slate-800/50 border border-white/10 text-white rounded-lg px-4 py-2.5 text-sm font-bold">
+                {urlLeagueName ||
+                  COMPETITIONS.find((c) => c.code.toUpperCase() === urlCompetitionCode.toUpperCase())?.name ||
                   urlCompetitionCode}
               </div>
             ) : joinedCodes === null ? (
-              <div className="w-full bg-slate-50 border border-slate-200 text-slate-500 rounded-lg px-4 py-2.5 text-sm shadow-inner">
+              <div className="w-full bg-slate-800/50 border border-white/10 text-slate-400 rounded-lg px-4 py-2.5 text-sm">
                 Loading…
               </div>
             ) : (
@@ -587,10 +587,10 @@ function PredictionsContent() {
                   setSelectedCompetitionCode(code);
                   window.localStorage.setItem('selectedCompetitionCode', code);
                 }}
-                className="w-full bg-white border border-slate-300 text-slate-900 rounded-lg px-4 py-2.5 text-sm font-semibold cursor-pointer outline-none focus:border-blue-500 shadow-sm"
+                className="w-full bg-slate-800/50 border border-white/10 text-white rounded-lg px-4 py-2.5 text-sm font-semibold cursor-pointer outline-none focus:border-blue-500"
               >
                 {availableCompetitions.map(({ code, name }) => (
-                  <option key={code} value={code}>
+                  <option key={code} value={code} className="bg-slate-800">
                     {name}
                   </option>
                 ))}
@@ -599,15 +599,15 @@ function PredictionsContent() {
           </div>
         </header>
 
-        <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-xl text-sm text-blue-900 mb-8 shadow-sm">
-          <strong className="text-blue-700 font-semibold mr-1">Note:</strong> 
+        <div className="bg-blue-500/10 border-l-4 border-blue-500 p-4 rounded-r-xl text-sm text-blue-200 mb-8">
+          <strong className="text-blue-300 font-semibold mr-1">Note:</strong>
           Match statuses (In Play, Finished) are updated periodically. Points will be awarded once the match result is officially finalized in our system.
         </div>
 
         <section className="space-y-8">
           {Object.entries(groupedFixtures).map(([dateLabel, items]) => (
-            <div key={dateLabel} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-              <h2 className="text-xl font-bold text-slate-900 mb-6 border-b border-slate-200 pb-4">{dateLabel}</h2>
+            <div key={dateLabel} className="bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-xl">
+              <h2 className="text-xl font-bold text-white mb-6 border-b border-white/10 pb-4">{dateLabel}</h2>
 
               <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                 {items.map((fixture) => {
@@ -630,17 +630,17 @@ function PredictionsContent() {
                   const errorMsg = saveError[fixtureId];
 
                   return (
-                    <article 
-                      key={fixtureId} 
-                      className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col gap-5"
+                    <article
+                      key={fixtureId}
+                      className="bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-xl p-5 shadow-lg hover:shadow-xl transition-shadow flex flex-col gap-5"
                     >
                       <div className="flex justify-between items-center text-sm">
-                        <span className="font-bold text-slate-600">{formatDate(kickoff)}</span>
+                        <span className="font-bold text-slate-300">{formatDate(kickoff)}</span>
                         <span
                           className={`px-2.5 py-1 rounded-md text-xs font-bold tracking-wide ${
-                            locked 
-                              ? 'bg-red-50 text-red-600 border border-red-200' 
-                              : 'bg-green-50 text-green-700 border border-green-200'
+                            locked
+                              ? 'bg-red-500/10 text-red-400 border border-red-500/30'
+                              : 'bg-green-500/10 text-green-400 border border-green-500/30'
                           }`}
                         >
                           {locked ? status || 'Locked' : 'Open'}
@@ -650,12 +650,12 @@ function PredictionsContent() {
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex flex-col items-center flex-1 text-center gap-2">
                           <TeamBadge name={homeName} logo={homeLogo} meta={homeMeta} />
-                          <strong className="text-sm font-semibold text-slate-900 leading-tight">{homeName}</strong>
+                          <strong className="text-sm font-semibold text-white leading-tight">{homeName}</strong>
                         </div>
 
                         <div className="shrink-0 mx-2">
                           {locked && homeScore !== null && awayScore !== null ? (
-                            <div className="bg-slate-100 border border-slate-200 px-4 py-2 rounded-lg font-bold text-lg text-slate-900 text-center shadow-inner">
+                            <div className="bg-slate-800/50 border border-white/10 px-4 py-2 rounded-lg font-bold text-lg text-white text-center">
                               <span>{homeScore}</span>
                               <small className="text-slate-400 mx-1">-</small>
                               <span>{awayScore}</span>
@@ -668,7 +668,7 @@ function PredictionsContent() {
                                 disabled={locked}
                                 inputMode="numeric"
                                 placeholder="0"
-                                className="w-12 h-12 bg-slate-50 border border-slate-300 text-slate-900 text-center text-lg font-bold rounded-lg focus:outline-none focus:border-blue-500 disabled:opacity-50 shadow-inner transition-colors"
+                                className="w-12 h-12 bg-slate-800/50 border border-white/10 text-white text-center text-lg font-bold rounded-lg focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-colors"
                               />
                               <span className="text-slate-400 font-bold">-</span>
                               <input
@@ -677,7 +677,7 @@ function PredictionsContent() {
                                 disabled={locked}
                                 inputMode="numeric"
                                 placeholder="0"
-                                className="w-12 h-12 bg-slate-50 border border-slate-300 text-slate-900 text-center text-lg font-bold rounded-lg focus:outline-none focus:border-blue-500 disabled:opacity-50 shadow-inner transition-colors"
+                                className="w-12 h-12 bg-slate-800/50 border border-white/10 text-white text-center text-lg font-bold rounded-lg focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-colors"
                               />
                             </div>
                           )}
@@ -685,7 +685,7 @@ function PredictionsContent() {
 
                         <div className="flex flex-col items-center flex-1 text-center gap-2">
                           <TeamBadge name={awayName} logo={awayLogo} meta={awayMeta} />
-                          <strong className="text-sm font-semibold text-slate-900 leading-tight">{awayName}</strong>
+                          <strong className="text-sm font-semibold text-white leading-tight">{awayName}</strong>
                         </div>
                       </div>
 
@@ -694,7 +694,7 @@ function PredictionsContent() {
                           saved
                             ? 'bg-green-600 hover:bg-green-500 text-white'
                             : locked || !prediction.home || !prediction.away
-                            ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
+                            ? 'bg-slate-800/50 text-slate-400 cursor-not-allowed border border-white/10'
                             : 'bg-blue-600 hover:bg-blue-500 text-white'
                         }`}
                         disabled={locked || !prediction.home || !prediction.away || isSaving}
@@ -710,7 +710,7 @@ function PredictionsContent() {
                       </button>
 
                       {errorMsg && (
-                        <p className="text-red-600 text-sm text-center font-medium bg-red-50 p-2 rounded-lg">{errorMsg}</p>
+                        <p className="text-red-400 text-sm text-center font-medium bg-red-500/10 p-2 rounded-lg">{errorMsg}</p>
                       )}
                     </article>
                   );
