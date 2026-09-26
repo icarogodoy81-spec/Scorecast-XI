@@ -55,10 +55,15 @@ export default function Navbar() {
     router.replace("/");
   };
 
-  const isHidden = pathname === "/" || pathname === "/login" || pathname === "/dashboard";
-  if (isHidden) {
+  if (
+    !pathname ||
+    pathname === "/" ||
+    pathname === "/login" ||
+    pathname.startsWith("/dashboard")
+  ) {
     return null;
   }
+
 
   return (
     <nav
