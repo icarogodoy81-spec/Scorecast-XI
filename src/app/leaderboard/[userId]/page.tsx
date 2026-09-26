@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Image from "next/image";
 import { createClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
@@ -73,7 +72,6 @@ async function getPlayerData(userId: string) {
     .map((prediction: any) => {
       const match = prediction.matches;
       
-      // If the joined match data is missing, skip
       if (!match) return null;
 
       const kickoff = new Date(match.date);
@@ -92,7 +90,7 @@ async function getPlayerData(userId: string) {
         actualAway: match.away_score ?? prediction.actual_away_score,
         guessHome: prediction.home_score,
         guessAway: prediction.away_score,
-        points: prediction.points, // Using exact points from your DB
+        points: prediction.points,
       };
     })
     .filter((row): row is NonNullable<typeof row> => row !== null)
@@ -145,22 +143,6 @@ export default async function PlayerPredictionsPage({
       <div className="overlay" />
 
       <div className="shell">
-        <header className="top-header">
-          <div className="brand">
-            <Image src="/images/logo.png" alt="Scorecast XI" width={443} height={319} className="logo" priority />
-            <p className="tagline">Player guesses</p>
-          </div>
-        </header>
-
-        <nav className="nav">
-          <Link href="/dashboard">Dashboard</Link>
-          <Link href="/predictions">Make predictions</Link>
-          <Link href="/leaderboard" className="active">
-            Leaderboard
-          </Link>
-          <Link href="/profile">Profile</Link>
-        </nav>
-
         <Link href="/leaderboard" className="back-link">
           ← Back to leaderboard
         </Link>
@@ -221,10 +203,10 @@ export default async function PlayerPredictionsPage({
       <style>{`
         .player-page {
           position: relative;
-          min-height: 100vh;
+          min-height: calc(100vh - 65px);
           overflow: hidden;
           background: linear-gradient(135deg, #020617 0%, #082f49 45%, #0f172a 100%);
-          padding: 40px 20px;
+          padding: 32px 20px;
         }
 
         .bgGrid {
@@ -260,55 +242,9 @@ export default async function PlayerPredictionsPage({
           backdrop-filter: blur(14px);
         }
 
-        .brand {
-          display: flex;
-          align-items: center;
-          gap: 18px;
-          margin-bottom: 20px;
-        }
-
-        .brand .logo {
-          height: 70px;
-          width: auto;
-        }
-
-        .brand .tagline {
-          margin: 0;
-          color: #bfdbfe;
-          font-size: 14px;
-        }
-
-        .nav {
-          display: flex;
-          gap: 12px;
-          flex-wrap: wrap;
-          margin-bottom: 20px;
-        }
-
-        .nav a {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          min-width: 130px;
-          padding: 12px 18px;
-          border-radius: 14px;
-          background: rgba(15, 23, 42, 0.95);
-          border: 1px solid rgba(147, 197, 253, 0.35);
-          color: #fff;
-          font-size: 15px;
-          font-weight: 700;
-          text-decoration: none;
-        }
-
-        .nav a:hover,
-        .nav a.active {
-          border-color: #60a5fa;
-          box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.22);
-        }
-
         .back-link {
           display: inline-block;
-          margin-bottom: 16px;
+          margin-bottom: 20px;
           color: #7dd3fc;
           font-weight: 700;
           text-decoration: none;
