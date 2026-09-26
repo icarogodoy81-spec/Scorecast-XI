@@ -33,7 +33,6 @@ export default async function LeagueDetailPage({
   if (!league) {
     return (
       <>
-        <Navbar />
         <div className="min-h-screen flex items-center justify-center text-slate-400">
           League not found.
         </div>
@@ -51,7 +50,6 @@ export default async function LeagueDetailPage({
   if (!membership) {
     return (
       <>
-        <Navbar />
         <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-slate-400">
           <p>You&apos;re not a member of this league.</p>
           <Link href="/leagues" className="text-green-400 hover:underline">
@@ -70,9 +68,7 @@ export default async function LeagueDetailPage({
   const userIds = (members || []).map((m: any) => m.user_id);
   if (userIds.length === 0) {
     return (
-      <>
-        <Navbar />
-        <div className="min-h-screen flex items-center justify-center text-slate-400">
+      <>        <div className="min-h-screen flex items-center justify-center text-slate-400">
           No members yet.
         </div>
       </>
@@ -224,7 +220,6 @@ export default async function LeagueDetailPage({
 
   return (
     <>
-      <Navbar />
       <div className="min-h-screen px-4 py-8 md:px-8 text-slate-100">
         <div className="max-w-4xl mx-auto">
           <div className="mb-6 bg-slate-900/40 backdrop-blur-md border border-white/10 p-6 rounded-2xl shadow-xl">
