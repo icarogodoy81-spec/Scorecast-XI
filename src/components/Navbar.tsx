@@ -59,10 +59,13 @@ export default function Navbar() {
     !pathname ||
     pathname === "/" ||
     pathname === "/login" ||
-    pathname.startsWith("/dashboard")
+    pathname.startsWith("/dashboard") ||
+    pathname === "/leagues" ||
+    pathname === "/leagues/"
   ) {
     return null;
   }
+
 
 
   return (
