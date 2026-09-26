@@ -8,34 +8,39 @@ import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 
 const NAV_LINKS = [
-  { href: '/dashboard', label: 'Dashboard' },
-  { href: '/predictions', label: 'Make predictions' },
-  { href: '/leaderboard', label: 'Leaderboard' },
-  { href: '/profile', label: 'Profile' },
-  { href: '/leagues', label: 'Leagues' },
-  { href: '/how-it-works', label: 'How to Play' },
+  { href: "/dashboard", label: "Dashboard" },
+  { href: "/predictions", label: "Make predictions" },
+  { href: "/leaderboard", label: "Leaderboard" },
+  { href: "/profile", label: "Profile" },
+  { href: "/leagues", label: "Leagues" },
+  { href: "/how-it-works", label: "How to Play" },
 ];
 
 export default function Dashboard() {
   const router = useRouter();
-  const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+    const supabase = createClient();
+
+    const checkAuth = async () => {
+      const { data, error } = await supabase.auth.getUser();
+
+      if (error || !data?.user) {
         router.replace("/");
         return;
       }
-      setUser(session.user);
+
+      setUser(data.user);
       setLoading(false);
     };
-    getUser();
-  }, [router, supabase]);
+
+    checkAuth();
+  }, [router]);
 
   const handleSignOut = async () => {
+    const supabase = createClient();
     await supabase.auth.signOut();
     router.replace("/");
   };
@@ -57,7 +62,7 @@ export default function Dashboard() {
             alt="Scorecast XI"
             width={443}
             height={319}
-            style={{ width: '100%', maxWidth: '360px', height: 'auto' }}
+            style={{ width: "100%", maxWidth: "360px", height: "auto" }}
             className="md:!max-w-[480px]"
             priority
           />

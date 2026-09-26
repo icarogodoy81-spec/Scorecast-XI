@@ -19,35 +19,24 @@ const NAV_LINKS = [
 export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
-  const supabase = createClient();
-
   const [isOpen, setIsOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // Hide Navbar completely on the landing/login page and on the dashboard itself
-  if (pathname === "/" || pathname === "/dashboard") {
-    return null;
-  }
-
+  // Always run hooks unconditionally at top level
   useEffect(() => {
-    const getUser = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (session) {
-        setUser(session.user);
-      }
-    };
-    getUser();
-  }, [supabase]);
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user) setUser(data.user);
+    });
+  }, []);
 
   // Close dropdown on route change
   useEffect(() => {
     setIsOpen(false);
   }, [pathname]);
 
-  // Close dropdown when clicking outside
+  // Close dropdown on outside click
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -64,9 +53,16 @@ export default function Navbar() {
   }, [isOpen]);
 
   const handleSignOut = async () => {
+    const supabase = createClient();
     await supabase.auth.signOut();
     router.replace("/");
   };
+
+  // Only check visibility AFTER all hooks have executed
+  const isHidden = pathname === "/" || pathname === "/login";
+  if (isHidden) {
+    return null;
+  }
 
   return (
     <nav
@@ -82,7 +78,7 @@ export default function Navbar() {
         zIndex: 50,
       }}
     >
-      {/* 3 Stripes / Hamburger Dropdown Container */}
+      {/* 3 Stripes / Hamburger Dropdown */}
       <div
         ref={menuRef}
         style={{
@@ -115,7 +111,6 @@ export default function Navbar() {
           />
         </button>
 
-        {/* Dropdown Menu overlay */}
         {isOpen && (
           <div className="absolute top-14 left-0 w-72 sm:w-80 rounded-2xl p-6 flex flex-col gap-3 bg-slate-900/95 backdrop-blur-md border border-white/10 shadow-2xl">
             {user?.email && (
@@ -128,6 +123,7 @@ export default function Navbar() {
               <Link
                 key={link.href}
                 href={link.href}
+                onClick={() => setIsOpen(false)}
                 className={`block w-full px-4 py-3 rounded-xl text-sm font-bold text-center border border-white/10 transition-all shadow-sm ${
                   pathname === link.href
                     ? "bg-blue-600/30 border-blue-500 text-white"
