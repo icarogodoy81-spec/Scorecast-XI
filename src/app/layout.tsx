@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import Navbar from "@/components/Navbar";
 
 export const metadata: Metadata = {
   title: "Scorecast XI",
@@ -22,7 +23,10 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="bg-slate-950 text-slate-50 min-h-screen">{children}</body>
+      <body className="bg-slate-950 text-slate-50 min-h-screen">
+        <Navbar />
+        {children}
+      </body>
     </html>
   );
 }
