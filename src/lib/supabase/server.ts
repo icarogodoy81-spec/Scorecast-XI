@@ -16,6 +16,11 @@ export async function createClient() {
   }
 
   return createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookieOptions: {
+      maxAge: 60 * 60 * 24 * 365, // 1 year
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+    },
     cookies: {
       getAll() {
         return cookieStore.getAll();
@@ -23,7 +28,10 @@ export async function createClient() {
       setAll(cookiesToSet) {
         try {
           cookiesToSet.forEach(({ name, value, options }) => {
-            cookieStore.set(name, value, options);
+            cookieStore.set(name, value, {
+              ...options,
+              maxAge: 60 * 60 * 24 * 365,
+            });
           });
         } catch {
           // Ignore when called from Server Components
