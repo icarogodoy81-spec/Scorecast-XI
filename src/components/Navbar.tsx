@@ -23,20 +23,17 @@ export default function Navbar() {
   const [user, setUser] = useState<User | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // Always run hooks unconditionally at top level
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => {
-      if (data?.user) setUser(data.user);
+    supabase.auth.getUser().then((res: any) => {
+      if (res?.data?.user) setUser(res.data.user);
     });
   }, []);
 
-  // Close dropdown on route change
   useEffect(() => {
     setIsOpen(false);
   }, [pathname]);
 
-  // Close dropdown on outside click
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -58,7 +55,6 @@ export default function Navbar() {
     router.replace("/");
   };
 
-  // Only check visibility AFTER all hooks have executed
   const isHidden = pathname === "/" || pathname === "/login";
   if (isHidden) {
     return null;
@@ -78,7 +74,6 @@ export default function Navbar() {
         zIndex: 50,
       }}
     >
-      {/* 3 Stripes / Hamburger Dropdown */}
       <div
         ref={menuRef}
         style={{
@@ -145,7 +140,6 @@ export default function Navbar() {
         )}
       </div>
 
-      {/* Centered Logo */}
       <Link href="/dashboard" className="logo-link">
         <Image
           src="/images/logo.png"
