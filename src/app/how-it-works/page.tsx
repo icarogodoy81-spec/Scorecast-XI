@@ -64,11 +64,20 @@ export default function HowItWorks() {
 
         <section className="mb-8">
           <h2 className="text-xl font-bold mb-3 text-white">4. Leaderboard tiebreaker</h2>
-          <p className="text-slate-300 leading-relaxed">
-            If two players are tied on total points, rankings are currently
-            ordered by total points only. Additional tiebreaker rules may be
-            added later.
+          <p className="text-slate-300 leading-relaxed mb-3">
+            If two or more players are tied on total points, rankings are determined by the following criteria in order:
           </p>
+          <ol className="list-decimal list-inside space-y-2 text-slate-300 text-sm">
+            <li>
+              <strong className="text-white">Most Exact Scores:</strong> Players with more 4-point exact scores rank higher.
+            </li>
+            <li>
+              <strong className="text-white">Most Goal Difference matches:</strong> If still tied, players with more 3-point correct goal difference outcomes rank higher.
+            </li>
+            <li>
+              <strong className="text-white">Most Correct Results:</strong> If still tied, players with more 2-point correct results (win/draw/loss) rank higher.
+            </li>
+          </ol>
         </section>
 
         <Link
