@@ -55,7 +55,7 @@ export default function Navbar() {
     router.replace("/");
   };
 
-  const isHidden = pathname === "/" || pathname === "/login";
+  const isHidden = pathname === "/" || pathname === "/login" || pathname === "/dashboard";
   if (isHidden) {
     return null;
   }
