@@ -13,6 +13,7 @@ const NAV_LINKS = [
   { href: "/leaderboard", label: "Leaderboard" },
   { href: "/profile", label: "Profile" },
   { href: "/leagues", label: "Leagues" },
+  { href: "/plans", label: "Plans & Membership" },
   { href: "/how-it-works", label: "How to Play" },
 ];
 
@@ -84,6 +85,7 @@ export default function Dashboard() {
           ))}
 
           <button
+            type="button"
             onClick={handleSignOut}
             className="w-full mt-3 px-4 py-2.5 text-sm rounded-lg transition-all border border-white/5 bg-slate-800/50 text-slate-300 hover:bg-slate-700/60 hover:text-white"
           >
