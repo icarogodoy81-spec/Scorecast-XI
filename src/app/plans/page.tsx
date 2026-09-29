@@ -1,4 +1,5 @@
 'use client'
+
 const plans = [
   {
     name: 'Free',
@@ -13,24 +14,13 @@ const plans = [
     featured: false,
   },
   {
-    name: 'Basic',
-    price: 'Coming soon',
-    description: 'A smoother way to follow your league.',
-    features: [
-      'Access to 1 league',
-      'Up to 200 friends',
-      'Quicker match results',
-      'Ad-free',
-    ],
-    featured: false,
-  },
-  {
     name: 'Gold',
     price: 'Coming soon',
     description: 'More leagues and ways to personalise your profile.',
     features: [
       'Access to all leagues',
       'Up to 200 friends',
+      'Quick match results',
       'Choose a personalised avatar',
       'Choose 1 badge',
       'Ad-free',
@@ -43,6 +33,7 @@ const plans = [
     description: 'The complete Scorecast XI experience.',
     features: [
       'Access to all leagues',
+      'Combine leagues in one pool',
       'Up to 200 friends',
       'Personalised badges',
       'Weekly achievements',
@@ -80,7 +71,9 @@ export default function PlansPage() {
               {plan.price === '£0' ? (
                 <p className="billing-note">Free, always</p>
               ) : (
-                <p className="billing-note">Subscription pricing to be announced</p>
+                <p className="billing-note">
+                  Subscription pricing to be announced
+                </p>
               )}
 
               <ul>
@@ -148,7 +141,7 @@ export default function PlansPage() {
 
         .plans-grid {
           display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
+          grid-template-columns: repeat(3, minmax(0, 1fr));
           align-items: stretch;
           gap: 18px;
         }
