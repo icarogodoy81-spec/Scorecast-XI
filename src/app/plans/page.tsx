@@ -25,7 +25,7 @@ const plans = [
       'Choose 1 badge',
       'Ad-free',
     ],
-    featured: true,
+    featured: false,
   },
   {
     name: 'Star',
@@ -33,15 +33,16 @@ const plans = [
     description: 'The complete Scorecast XI experience.',
     features: [
       'Access to all leagues',
-      'Combine leagues in one pool',
       'Up to 200 friends',
+      'Combine leagues in the same pool',
       'Personalised badges',
       'Weekly achievements',
       'Ad-free',
     ],
-    featured: false,
+    featured: true,
   },
 ]
+
 
 export default function PlansPage() {
   return (
