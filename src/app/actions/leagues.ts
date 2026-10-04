@@ -3,6 +3,53 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
+type PlanKey = "free" | "gold" | "star";
+
+async function checkLeagueAccessLimit(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string
+): Promise<string | null> {
+  const { data: entitlement, error: entitlementError } = await supabase
+    .from("user_entitlements")
+    .select("plan_key, status, expires_at")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (entitlementError) {
+    return "Could not verify your membership plan. Please try again.";
+  }
+
+  const entitlementIsActive =
+    entitlement?.status === "active" &&
+    (!entitlement.expires_at ||
+      new Date(entitlement.expires_at).getTime() > Date.now());
+
+  const plan: PlanKey =
+    entitlementIsActive &&
+    (entitlement.plan_key === "gold" || entitlement.plan_key === "star")
+      ? entitlement.plan_key
+      : "free";
+
+  if (plan !== "free") {
+    return null;
+  }
+
+  const { count, error: membershipError } = await supabase
+    .from("league_members")
+    .select("league_id", { count: "exact", head: true })
+    .eq("user_id", userId);
+
+  if (membershipError) {
+    return "Could not verify your league access. Please try again.";
+  }
+
+  if ((count ?? 0) >= 1) {
+    return "The Free plan allows access to one league. Leave a league before creating or joining another.";
+  }
+
+  return null;
+}
+
 export async function createLeague(formData: {
   name: string;
   description?: string;
@@ -10,9 +57,14 @@ export async function createLeague(formData: {
   competition_code?: string;
 }) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   if (!user) return { error: "Not authenticated" };
+
+  const accessError = await checkLeagueAccessLimit(supabase, user.id);
+  if (accessError) return { error: accessError };
 
   const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
 
@@ -33,11 +85,16 @@ export async function createLeague(formData: {
 
   if (error) return { error: error.message };
 
-  // Add owner as member
-  await supabase.from("league_members").insert({
+  const { error: memberError } = await supabase.from("league_members").insert({
     user_id: user.id,
     league_id: league.id,
   });
+
+  if (memberError) {
+    // Best-effort cleanup so a failed membership insert does not leave an orphan league.
+    await supabase.from("leagues").delete().eq("id", league.id);
+    return { error: memberError.message };
+  }
 
   revalidatePath("/leagues");
   return { data: league, error: null };
@@ -45,11 +102,12 @@ export async function createLeague(formData: {
 
 export async function joinLeague(inviteCode: string) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   if (!user) return { error: "Not authenticated" };
 
-  // Find league by invite code
   const { data: league, error: leagueError } = await supabase
     .from("leagues")
     .select("*")
@@ -58,23 +116,27 @@ export async function joinLeague(inviteCode: string) {
 
   if (leagueError || !league) return { error: "Invalid invite code" };
 
-  // Check if already a member
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from("league_members")
     .select("user_id")
     .eq("league_id", league.id)
     .eq("user_id", user.id)
-    .single();
+    .maybeSingle();
 
+  if (existingError) return { error: existingError.message };
   if (existing) return { error: "Already a member" };
 
-  // Check max members
-  const { count } = await supabase
+  const accessError = await checkLeagueAccessLimit(supabase, user.id);
+  if (accessError) return { error: accessError };
+
+  const { count, error: countError } = await supabase
     .from("league_members")
-    .select("*", { count: "exact", head: true })
+    .select("user_id", { count: "exact", head: true })
     .eq("league_id", league.id);
 
-  if (league.max_members && count && count >= league.max_members) {
+  if (countError) return { error: countError.message };
+
+  if (league.max_members && (count ?? 0) >= league.max_members) {
     return { error: "League is full" };
   }
 
@@ -91,7 +153,9 @@ export async function joinLeague(inviteCode: string) {
 
 export async function leaveLeague(leagueId: number) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   if (!user) return { error: "Not authenticated" };
 
@@ -109,11 +173,12 @@ export async function leaveLeague(leagueId: number) {
 
 export async function deleteLeague(leagueId: number) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   if (!user) return { error: "Not authenticated" };
 
-  // Verify ownership
   const { data: league } = await supabase
     .from("leagues")
     .select("owner_id")

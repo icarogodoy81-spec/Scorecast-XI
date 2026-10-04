@@ -1,19 +1,32 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
-const supabase = createClient()
 
 export default function HomePage() {
   const router = useRouter()
+  const supabase = createClient()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [checkingSession, setCheckingSession] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
+
+  useEffect(() => {
+    async function checkAuth() {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        router.replace('/dashboard')
+      } else {
+        setCheckingSession(false)
+      }
+    }
+    checkAuth()
+  }, [router, supabase])
 
   async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -36,6 +49,14 @@ export default function HomePage() {
     router.push('/dashboard')
   }
 
+  if (checkingSession) {
+    return (
+      <main style={{ minHeight: '100vh', background: '#06152f', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+        <div>Loading...</div>
+      </main>
+    )
+  }
+
   return (
     <main className="landing">
       <section className="hero">
@@ -52,8 +73,7 @@ export default function HomePage() {
               priority
               style={{ width: '100%', height: 'auto' }}
             />
-
-     </div>
+          </div>
 
           <div className="loginCard">
             <h2>Login</h2>

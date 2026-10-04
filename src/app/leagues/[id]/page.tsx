@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import LeagueStandings from "./LeagueStandings";
-import Navbar from "@/components/Navbar";
 
 export const dynamic = "force-dynamic";
 
@@ -32,11 +31,9 @@ export default async function LeagueDetailPage({
 
   if (!league) {
     return (
-      <>
-        <div className="min-h-screen flex items-center justify-center text-slate-400">
-          League not found.
-        </div>
-      </>
+      <div className="min-h-screen flex items-center justify-center text-slate-400">
+        League not found.
+      </div>
     );
   }
 
@@ -49,14 +46,12 @@ export default async function LeagueDetailPage({
 
   if (!membership) {
     return (
-      <>
-        <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-slate-400">
-          <p>You&apos;re not a member of this league.</p>
-          <Link href="/leagues" className="text-green-400 hover:underline">
-            Back to leagues
-          </Link>
-        </div>
-      </>
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-slate-400">
+        <p>You&apos;re not a member of this league.</p>
+        <Link href="/leagues" className="text-green-400 hover:underline">
+          Back to leagues
+        </Link>
+      </div>
     );
   }
 
@@ -68,10 +63,9 @@ export default async function LeagueDetailPage({
   const userIds = (members || []).map((m: any) => m.user_id);
   if (userIds.length === 0) {
     return (
-      <>        <div className="min-h-screen flex items-center justify-center text-slate-400">
-          No members yet.
-        </div>
-      </>
+      <div className="min-h-screen flex items-center justify-center text-slate-400">
+        No members yet.
+      </div>
     );
   }
 
@@ -121,9 +115,6 @@ export default async function LeagueDetailPage({
 
   const matchesByApiId = new Map(matches.map((m: any) => [m.api_fixture_id, m]));
 
-  // Derive the competition code the leaderboard is actually scoring on:
-  // prefer the league's own field, otherwise take it from the fixtures its
-  // predictions point at, so the button always opens the right league.
   const leagueCompetitionCode =
     league.competition_code ||
     fixtures.map((f: any) => f.competition_code).find((c: any) => c) ||
@@ -216,36 +207,46 @@ export default async function LeagueDetailPage({
     };
   });
 
-  standings.sort((a, b) => b.points - a.points);
+  // Tiebreaker order:
+  // 1. Points
+  // 2. Exact Scores
+  // 3. Goal Difference matches
+  // 4. Correct Results
+  // 5. Alphabetical fallback
+  standings.sort((a, b) => {
+    if (b.points !== a.points) return b.points - a.points;
+    if (b.exactScores !== a.exactScores) return b.exactScores - a.exactScores;
+    if (b.goalDiff !== a.goalDiff) return b.goalDiff - a.goalDiff;
+    if (b.correctResult !== a.correctResult) return b.correctResult - a.correctResult;
+    return a.username.localeCompare(b.username);
+  });
 
   return (
-    <>
-      <div className="min-h-screen px-4 py-8 md:px-8 text-slate-100">
-        <div className="max-w-4xl mx-auto">
-          <div className="mb-6 bg-slate-900/40 backdrop-blur-md border border-white/10 p-6 rounded-2xl shadow-xl">
-            <h1 className="text-3xl font-bold text-white">{league.name}</h1>
-            <p className="text-sm mt-2 text-slate-300">
-              Invite code:{" "}
-              <span className="font-mono font-bold text-blue-400 tracking-wide">
-                {league.invite_code}
-              </span>
-            </p>
+    <div className="min-h-screen px-4 py-8 md:px-8 text-slate-100">
+      <div className="max-w-4xl mx-auto">
+        <div className="mb-6 bg-slate-900/40 backdrop-blur-md border border-white/10 p-6 rounded-2xl shadow-xl">
+          <h1 className="text-3xl font-bold text-white">{league.name}</h1>
+          <p className="text-sm mt-2 text-slate-300">
+            Invite code:{" "}
+            <span className="font-mono font-bold text-blue-400 tracking-wide">
+              {league.invite_code}
+            </span>
+          </p>
 
-            <Link
-              href={
-                leagueCompetitionCode
-                  ? `/predictions?competition_code=${leagueCompetitionCode}&league_name=${encodeURIComponent(league.name)}`
-                  : `/predictions?league_name=${encodeURIComponent(league.name)}`
-              }
-              className="inline-block mt-4 px-6 py-2.5 rounded-lg font-semibold text-sm bg-green-500 hover:bg-green-400 text-slate-900 transition-colors shadow-sm"
-            >
-              Make predictions
-            </Link>
-          </div>
-
-          <LeagueStandings standings={standings} currentUserId={user.id} />
+          <Link
+            href={
+              leagueCompetitionCode
+                ? `/predictions?competition_code=${leagueCompetitionCode}&league_name=${encodeURIComponent(league.name)}`
+                : `/predictions?league_name=${encodeURIComponent(league.name)}`
+            }
+            className="inline-block mt-4 px-6 py-2.5 rounded-lg font-semibold text-sm bg-green-500 hover:bg-green-400 text-slate-900 transition-colors shadow-sm"
+          >
+            Make predictions
+          </Link>
         </div>
+
+        <LeagueStandings standings={standings} currentUserId={user.id} />
       </div>
-    </>
+    </div>
   );
 }
