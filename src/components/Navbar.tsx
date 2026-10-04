@@ -13,8 +13,10 @@ const NAV_LINKS = [
   { href: "/leaderboard", label: "Leaderboard" },
   { href: "/profile", label: "Profile" },
   { href: "/leagues", label: "Leagues" },
+  { href: "/plans", label: "Plans & Membership" },
   { href: "/how-it-works", label: "How to Play" },
 ];
+
 
 export default function Navbar() {
   const router = useRouter();
