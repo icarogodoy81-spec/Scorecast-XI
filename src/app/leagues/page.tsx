@@ -1,17 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
-import { generateInviteCode } from "@/lib/inviteCode";
+import { createLeague, joinLeague } from "@/app/actions/leagues";
 
 type League = {
-  id: string;
+  id: string | number;
   name: string;
   invite_code: string;
   owner_id: string;
-  competition_code: string;
+  competition_code: string | null;
 };
 
 const COMPETITIONS = [
@@ -30,20 +30,24 @@ const COMPETITIONS = [
 ];
 
 export default function LeaguesPage() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const [userId, setUserId] = useState<string | null>(null);
   const [myLeagues, setMyLeagues] = useState<League[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [newLeagueName, setNewLeagueName] = useState("");
   const [newLeagueCompetition, setNewLeagueCompetition] = useState("BSA");
   const [joinCode, setJoinCode] = useState("");
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    async function load() {
-      const { data: userData } = await supabase.auth.getUser();
-      const uid = userData.user?.id ?? null;
+    async function loadLeagues() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      const uid = user?.id ?? null;
       setUserId(uid);
 
       if (!uid) {
@@ -51,112 +55,124 @@ export default function LeaguesPage() {
         return;
       }
 
-      const { data: memberships } = await supabase
+      const { data: memberships, error: membershipError } = await supabase
         .from("league_members")
         .select("league_id")
         .eq("user_id", uid);
 
-      const leagueIds = (memberships || []).map((m: { league_id: string }) => m.league_id);
+      if (membershipError) {
+        setMessage("Could not load your leagues. Please refresh the page.");
+        setLoading(false);
+        return;
+      }
+
+      const leagueIds = (memberships ?? []).map(
+        (membership: { league_id: string | number }) => membership.league_id
+      );
 
       if (leagueIds.length > 0) {
-        const { data: leagues } = await supabase
+        const { data: leagues, error: leaguesError } = await supabase
           .from("leagues")
           .select("id, name, invite_code, owner_id, competition_code")
           .in("id", leagueIds);
 
-        setMyLeagues(leagues || []);
+        if (leaguesError) {
+          setMessage("Could not load your leagues. Please refresh the page.");
+        } else {
+          setMyLeagues((leagues ?? []) as League[]);
+        }
       }
 
       setLoading(false);
     }
 
-    load();
+    loadLeagues();
   }, [supabase]);
 
   async function handleCreate() {
-    if (!userId || !newLeagueName.trim()) return;
+    const name = newLeagueName.trim();
+
+    if (!userId || !name || isSubmitting) return;
 
     setMessage("");
-    const invite_code = generateInviteCode();
+    setIsSubmitting(true);
 
-    const { data: league, error } = await supabase
-      .from("leagues")
-      .insert({
-        name: newLeagueName.trim(),
-        invite_code,
-        owner_id: userId,
+    try {
+      const result = await createLeague({
+        name,
         competition_code: newLeagueCompetition,
-      })
-      .select()
-      .single();
+      });
 
-    if (error || !league) {
-      setMessage("Failed to create league.");
-      return;
+      if (result.error) {
+        setMessage(result.error);
+        return;
+      }
+
+      if (!("data" in result) || !result.data) {
+        setMessage("Could not create the league. Please try again.");
+        return;
+      }
+
+      const league = result.data as League;
+      setMyLeagues((previous) => [...previous, league]);
+      setNewLeagueName("");
+      setMessage(`League created! Invite code: ${league.invite_code}`);
+    } catch {
+      setMessage("Could not create the league. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
-
-    await supabase
-      .from("league_members")
-      .insert({ league_id: league.id, user_id: userId });
-
-    setMyLeagues((prev) => [...prev, league]);
-    setNewLeagueName("");
-    setMessage(`League created! Invite code: ${league.invite_code}`);
   }
 
   async function handleJoin() {
-    if (!userId || !joinCode.trim()) return;
+    const code = joinCode.trim();
+
+    if (!userId || !code || isSubmitting) return;
 
     setMessage("");
+    setIsSubmitting(true);
 
-    const { data: league, error } = await supabase
-      .from("leagues")
-      .select("id, name, invite_code, owner_id, competition_code")
-      .eq("invite_code", joinCode.trim().toUpperCase())
-      .single();
+    try {
+      const result = await joinLeague(code);
 
-    if (error || !league) {
-      setMessage("Invalid invite code.");
-      return;
+      if (result.error) {
+        setMessage(result.error);
+        return;
+      }
+
+      if (!("data" in result) || !result.data) {
+        setMessage("Could not join the league. Please try again.");
+        return;
+      }
+
+      const league = result.data as League;
+      setMyLeagues((previous) => [...previous, league]);
+      setJoinCode("");
+      setMessage(`Joined ${league.name}!`);
+    } catch {
+      setMessage("Could not join the league. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
-
-    const alreadyMember = myLeagues.some((l) => l.id === league.id);
-    if (alreadyMember) {
-      setMessage("You're already in this league.");
-      return;
-    }
-
-    const { error: joinError } = await supabase
-      .from("league_members")
-      .insert({ league_id: league.id, user_id: userId });
-
-    if (joinError) {
-      setMessage("Failed to join league.");
-      return;
-    }
-
-    setMyLeagues((prev) => [...prev, league]);
-    setJoinCode("");
-    setMessage(`Joined ${league.name}!`);
   }
 
   return (
-    <main className="min-h-screen text-slate-100 p-6 md:p-10">
-      <div className="max-w-2xl mx-auto space-y-8">
-        <div className="flex items-center justify-center mb-6">
-          <Image 
-            src="/images/logo.png" 
-            alt="Scorecast XI" 
-            width={443} 
-            height={319} 
-            className="w-full max-w-[280px] h-auto"
+    <main className="min-h-screen p-6 text-slate-100 md:p-10">
+      <div className="mx-auto max-w-2xl space-y-8">
+        <div className="mb-6 flex items-center justify-center">
+          <Image
+            src="/images/logo.png"
+            alt="Scorecast XI"
+            width={443}
+            height={319}
+            className="h-auto w-full max-w-[280px]"
             priority
           />
         </div>
 
-        <Link 
-          href="/dashboard" 
-          className="inline-block text-slate-400 hover:text-blue-400 transition-colors"
+        <Link
+          href="/dashboard"
+          className="inline-block text-slate-400 transition-colors hover:text-blue-400"
         >
           &larr; Back to dashboard
         </Link>
@@ -167,76 +183,108 @@ export default function LeaguesPage() {
           <p className="text-blue-400">Loading...</p>
         ) : (
           <div className="space-y-6">
-            
-            {/* Create League Section */}
-            <section className="bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-xl">
-              <h2 className="text-xl font-semibold mb-4 text-white">Create a league</h2>
-              <div className="flex flex-col md:flex-row gap-3">
+            <section className="rounded-2xl border border-white/10 bg-slate-900/40 p-6 shadow-xl backdrop-blur-md">
+              <h2 className="mb-4 text-xl font-semibold text-white">
+                Create a league
+              </h2>
+
+              <div className="flex flex-col gap-3 md:flex-row">
                 <input
                   value={newLeagueName}
-                  onChange={(e) => setNewLeagueName(e.target.value)}
+                  onChange={(event) => setNewLeagueName(event.target.value)}
                   placeholder="League name"
-                  className="flex-1 bg-slate-800/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-blue-500"
+                  className="flex-1 rounded-lg border border-white/10 bg-slate-800/50 px-4 py-2.5 text-white focus:border-blue-500 focus:outline-none"
                 />
+
                 <select
                   value={newLeagueCompetition}
-                  onChange={(e) => setNewLeagueCompetition(e.target.value)}
-                  className="flex-1 bg-slate-800/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-blue-500"
+                  onChange={(event) =>
+                    setNewLeagueCompetition(event.target.value)
+                  }
+                  className="flex-1 rounded-lg border border-white/10 bg-slate-800/50 px-4 py-2.5 text-white focus:border-blue-500 focus:outline-none"
                 >
-                  {COMPETITIONS.map((c) => (
-                    <option key={c.code} value={c.code} className="bg-slate-800">
-                      {c.name}
+                  {COMPETITIONS.map((competition) => (
+                    <option
+                      key={competition.code}
+                      value={competition.code}
+                      className="bg-slate-800"
+                    >
+                      {competition.name}
                     </option>
                   ))}
                 </select>
-                <button 
-                  onClick={handleCreate} 
-                  className="bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg px-6 py-2.5 transition-colors"
+
+                <button
+                  onClick={handleCreate}
+                  disabled={isSubmitting || !newLeagueName.trim()}
+                  className="rounded-lg bg-blue-600 px-6 py-2.5 font-semibold text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Create
+                  {isSubmitting ? "Please wait..." : "Create"}
                 </button>
               </div>
             </section>
 
-            {/* Join League Section */}
-            <section className="bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-xl">
-              <h2 className="text-xl font-semibold mb-4 text-white">Join a league</h2>
-              <div className="flex flex-col md:flex-row gap-3">
+            <section className="rounded-2xl border border-white/10 bg-slate-900/40 p-6 shadow-xl backdrop-blur-md">
+              <h2 className="mb-4 text-xl font-semibold text-white">
+                Join a league
+              </h2>
+
+              <div className="flex flex-col gap-3 md:flex-row">
                 <input
                   value={joinCode}
-                  onChange={(e) => setJoinCode(e.target.value)}
+                  onChange={(event) => setJoinCode(event.target.value)}
                   placeholder="Invite code"
-                  className="flex-1 bg-slate-800/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-blue-500"
+                  className="flex-1 rounded-lg border border-white/10 bg-slate-800/50 px-4 py-2.5 text-white focus:border-blue-500 focus:outline-none"
                 />
-                <button 
-                  onClick={handleJoin} 
-                  className="bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg px-6 py-2.5 transition-colors"
+
+                <button
+                  onClick={handleJoin}
+                  disabled={isSubmitting || !joinCode.trim()}
+                  className="rounded-lg bg-blue-600 px-6 py-2.5 font-semibold text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Join
+                  {isSubmitting ? "Please wait..." : "Join"}
                 </button>
               </div>
             </section>
 
             {message && (
-              <p className="text-yellow-400 font-medium px-2">{message}</p>
+              <p className="px-2 font-medium text-yellow-400" role="status">
+                {message}
+              </p>
             )}
 
-            {/* My Leagues Section */}
-            <section className="bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-xl">
-              <h2 className="text-xl font-semibold mb-4 text-white">My leagues</h2>
+            <section className="rounded-2xl border border-white/10 bg-slate-900/40 p-6 shadow-xl backdrop-blur-md">
+              <h2 className="mb-4 text-xl font-semibold text-white">
+                My leagues
+              </h2>
+
               {myLeagues.length === 0 ? (
                 <p className="text-slate-400">No leagues yet.</p>
               ) : (
                 <ul className="space-y-3">
-                  {myLeagues.map((l) => (
-                    <li key={l.id} className="bg-white/5 border border-white/5 rounded-xl p-4 hover:bg-white/10 transition-colors">
-                      <Link href={`/leagues/${l.id}`} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  {myLeagues.map((league) => (
+                    <li
+                      key={league.id}
+                      className="rounded-xl border border-white/5 bg-white/5 p-4 transition-colors hover:bg-white/10"
+                    >
+                      <Link
+                        href={`/leagues/${league.id}`}
+                        className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center"
+                      >
                         <div>
-                          <strong className="text-blue-400 text-lg block">{l.name}</strong>
-                          <span className="text-sm text-slate-400">{l.competition_code}</span>
+                          <strong className="block text-lg text-blue-400">
+                            {league.name}
+                          </strong>
+                          <span className="text-sm text-slate-400">
+                            {league.competition_code ?? "No competition"}
+                          </span>
                         </div>
-                        <div className="text-sm bg-black/30 px-3 py-1.5 rounded-md font-mono text-slate-300">
-                          code: <span className="text-white">{l.invite_code}</span>
+
+                        <div className="rounded-md bg-black/30 px-3 py-1.5 font-mono text-sm text-slate-300">
+                          code:{" "}
+                          <span className="text-white">
+                            {league.invite_code}
+                          </span>
                         </div>
                       </Link>
                     </li>
@@ -244,7 +292,6 @@ export default function LeaguesPage() {
                 </ul>
               )}
             </section>
-
           </div>
         )}
       </div>
