@@ -45,7 +45,7 @@ async function checkLeagueCreationLimit(
   }
 
   if ((count ?? 0) >= 1) {
-    return "The Free plan allows you to create one league.";
+    return "Your Free plan includes access to one league. Want to create or join more? Explore our Gold and Star plans on the Plans & Membership page!";
   }
 
   return null;
