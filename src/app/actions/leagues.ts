@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 
 type PlanKey = "free" | "gold" | "star";
 
-async function checkLeagueAccessLimit(
+async function checkLeagueCreationLimit(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string
 ): Promise<string | null> {
@@ -34,17 +34,18 @@ async function checkLeagueAccessLimit(
     return null;
   }
 
-  const { count, error: membershipError } = await supabase
-    .from("league_members")
-    .select("league_id", { count: "exact", head: true })
-    .eq("user_id", userId);
+  // Count leagues this user owns, not leagues they have joined.
+  const { count, error: leagueError } = await supabase
+    .from("leagues")
+    .select("id", { count: "exact", head: true })
+    .eq("owner_id", userId);
 
-  if (membershipError) {
-    return "Could not verify your league access. Please try again.";
+  if (leagueError) {
+    return "Could not verify your league limit. Please try again.";
   }
 
   if ((count ?? 0) >= 1) {
-    return "The Free plan allows access to one league. Leave a league before creating or joining another.";
+    return "The Free plan allows you to create one league.";
   }
 
   return null;
@@ -63,7 +64,7 @@ export async function createLeague(formData: {
 
   if (!user) return { error: "Not authenticated" };
 
-  const accessError = await checkLeagueAccessLimit(supabase, user.id);
+  const accessError = await checkLeagueCreationLimit(supabase, user.id);
   if (accessError) return { error: accessError };
 
   const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -91,7 +92,6 @@ export async function createLeague(formData: {
   });
 
   if (memberError) {
-    // Best-effort cleanup so a failed membership insert does not leave an orphan league.
     await supabase.from("leagues").delete().eq("id", league.id);
     return { error: memberError.message };
   }
@@ -125,9 +125,6 @@ export async function joinLeague(inviteCode: string) {
 
   if (existingError) return { error: existingError.message };
   if (existing) return { error: "Already a member" };
-
-  const accessError = await checkLeagueAccessLimit(supabase, user.id);
-  if (accessError) return { error: accessError };
 
   const { count, error: countError } = await supabase
     .from("league_members")
