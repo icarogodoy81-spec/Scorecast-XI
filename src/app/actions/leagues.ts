@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 
 type PlanKey = "free" | "gold" | "star";
 
-async function checkLeagueCreationLimit(
+async function checkLeagueAccessLimit(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string
 ): Promise<string | null> {
@@ -34,18 +34,17 @@ async function checkLeagueCreationLimit(
     return null;
   }
 
-  // Count leagues this user owns, not leagues they have joined.
-  const { count, error: leagueError } = await supabase
-    .from("leagues")
-    .select("id", { count: "exact", head: true })
-    .eq("owner_id", userId);
+  const { count, error: membershipError } = await supabase
+    .from("league_members")
+    .select("league_id", { count: "exact", head: true })
+    .eq("user_id", userId);
 
-  if (leagueError) {
-    return "Could not verify your league limit. Please try again.";
+  if (membershipError) {
+    return "Could not verify your league access. Please try again.";
   }
 
   if ((count ?? 0) >= 1) {
-    return "Your Free plan includes access to one league. Want to create or join more? Explore our Gold and Star plans on the Plans & Membership page!";
+    return "The Free plan includes one league. To create or join more, explore Gold and Star on the Plans & Membership page.";
   }
 
   return null;
@@ -64,7 +63,7 @@ export async function createLeague(formData: {
 
   if (!user) return { error: "Not authenticated" };
 
-  const accessError = await checkLeagueCreationLimit(supabase, user.id);
+  const accessError = await checkLeagueAccessLimit(supabase, user.id);
   if (accessError) return { error: accessError };
 
   const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -125,6 +124,9 @@ export async function joinLeague(inviteCode: string) {
 
   if (existingError) return { error: existingError.message };
   if (existing) return { error: "Already a member" };
+
+  const accessError = await checkLeagueAccessLimit(supabase, user.id);
+  if (accessError) return { error: accessError };
 
   const { count, error: countError } = await supabase
     .from("league_members")

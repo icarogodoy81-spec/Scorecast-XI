@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Scorecast XI</string>
+    <string name="title_activity_main">Scorecast XI</string>
+    <string name="package_name">com.scorecastxi.app</string>
+    <string name="custom_url_scheme">com.scorecastxi.app</string>
+</resources>
