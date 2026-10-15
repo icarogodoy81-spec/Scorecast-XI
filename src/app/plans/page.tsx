@@ -14,20 +14,6 @@ const plans = [
     featured: false,
   },
   {
-    name: 'Gold',
-    price: 'Coming soon',
-    description: 'More leagues and ways to personalise your profile.',
-    features: [
-      'Access to all leagues',
-      'Up to 200 friends',
-      'Quick match results',
-      'Choose a personalised avatar',
-      'Choose 1 badge',
-      'Ad-free',
-    ],
-    featured: false,
-  },
-  {
     name: 'Star',
     price: 'Coming soon',
     description: 'The complete Scorecast XI experience.',
@@ -36,13 +22,12 @@ const plans = [
       'Up to 200 friends',
       'Combine leagues in the same pool',
       'Personalised badges',
-      'Weekly achievements',
+      'Quick match results',
       'Ad-free',
     ],
     featured: true,
   },
 ]
-
 
 export default function PlansPage() {
   return (
@@ -112,7 +97,7 @@ export default function PlansPage() {
 
         .plans-content {
           width: 100%;
-          max-width: 1180px;
+          max-width: 900px;
           margin: 0 auto;
         }
 
@@ -142,7 +127,7 @@ export default function PlansPage() {
 
         .plans-grid {
           display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
+          grid-template-columns: repeat(2, minmax(0, 1fr));
           align-items: stretch;
           gap: 18px;
         }
@@ -237,13 +222,6 @@ export default function PlansPage() {
           color: #94a3b8;
           font-size: 13px;
           text-align: center;
-        }
-
-        @media (max-width: 950px) {
-          .plans-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 22px 16px;
-          }
         }
 
         @media (max-width: 560px) {
