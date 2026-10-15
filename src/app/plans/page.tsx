@@ -21,7 +21,6 @@ const plans = [
       'Access to all leagues',
       'Up to 200 friends',
       'Combine leagues in the same pool',
-      'Personalised badges',
       'Quick match results',
       'Ad-free',
     ],
