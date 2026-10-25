@@ -1,38 +1,64 @@
 "use client";
 
 import { useState } from "react";
-import { createLeague } from "@/app/actions/leagues";
 import { useRouter } from "next/navigation";
+import { createLeague } from "@/app/actions/leagues";
 import { COMPETITIONS } from "@/lib/competitions";
 
 export default function CreateLeaguePage() {
   const [name, setName] = useState("");
-  const [competitionCode, setCompetitionCode] = useState("");
+  const [competitionCodes, setCompetitionCodes] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
 
-  async function handleSubmit(e: React.FormEvent) {
+  function toggleCompetition(code: string) {
+    setCompetitionCodes((current) =>
+      current.includes(code)
+        ? current.filter((item) => item !== code)
+        : [...current, code]
+    );
+  }
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setLoading(true);
     setError("");
 
-    if (!competitionCode) {
-      setError("Please select a tournament.");
-      setLoading(false);
+    const trimmedName = name.trim();
+
+    if (!trimmedName) {
+      setError("Please enter a league name.");
       return;
     }
 
-    const result = await createLeague({
-      name: name.trim(),
-      competition_code: competitionCode,
-    });
+    if (competitionCodes.length === 0) {
+      setError("Please select at least one tournament.");
+      return;
+    }
 
-    if (result.error) {
-      setError(result.error);
+    setLoading(true);
+
+    try {
+      const result = await createLeague({
+        name: trimmedName,
+        competition_codes: competitionCodes,
+      });
+
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+
+      if (result.data?.id) {
+        router.push(`/leagues/${result.data.id}`);
+        return;
+      }
+
+      setError("The league was not created. Please try again.");
+    } catch {
+      setError("Could not create the league. Please try again.");
+    } finally {
       setLoading(false);
-    } else if (result.data?.id) {
-      router.push(`/leagues/${result.data.id}`);
     }
   }
 
@@ -45,22 +71,29 @@ export default function CreateLeaguePage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-950 px-4">
       <div className="w-full max-w-md">
-        <h1 className="text-2xl font-bold mb-6 text-white text-center">
+        <h1 className="mb-6 text-center text-2xl font-bold text-white">
           Create a League
         </h1>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="bg-red-900/40 border border-red-700 text-red-300 text-sm p-3 rounded-lg">
+            <div
+              role="alert"
+              className="rounded-lg border border-red-700 bg-red-900/40 p-3 text-sm text-red-300"
+            >
               {error}
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
+            <label
+              htmlFor="league-name"
+              className="mb-1 block text-sm font-medium text-gray-300"
+            >
               League Name
             </label>
             <input
+              id="league-name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -72,30 +105,38 @@ export default function CreateLeaguePage() {
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
-              Tournament
-            </label>
-            <select
-              value={competitionCode}
-              onChange={(e) => setCompetitionCode(e.target.value)}
-              required
-              style={inputStyle}
-              className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-            >
-              <option value="">Select a tournament</option>
-              {COMPETITIONS.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {c.name}
-                </option>
+          <fieldset>
+            <legend className="mb-2 text-sm font-medium text-gray-300">
+              Tournaments
+            </legend>
+
+            <div className="space-y-2">
+              {COMPETITIONS.map((competition) => (
+                <label
+                  key={competition.code}
+                  className="flex cursor-pointer items-center gap-3 rounded-lg border border-[#243b63] bg-[#111c34] px-3 py-2 text-sm text-white"
+                >
+                  <input
+                    type="checkbox"
+                    checked={competitionCodes.includes(competition.code)}
+                    onChange={() => toggleCompetition(competition.code)}
+                    className="accent-green-500"
+                  />
+                  {competition.name}
+                </label>
               ))}
-            </select>
-          </div>
+            </div>
+
+            <p className="mt-2 text-xs text-gray-400">
+              Free supports one tournament per league. Star can combine
+              tournaments in one league.
+            </p>
+          </fieldset>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-green-600 text-white py-2 rounded-lg font-medium hover:bg-green-700 disabled:opacity-50"
+            className="w-full rounded-lg bg-green-600 py-2 font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading ? "Creating..." : "Create League"}
           </button>

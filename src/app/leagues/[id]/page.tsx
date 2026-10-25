@@ -5,8 +5,16 @@ import LeagueStandings from "./LeagueStandings";
 export const dynamic = "force-dynamic";
 
 const VISIBLE_STATUSES = [
-  "FT", "FINISHED", "AET", "PEN",
-  "LIVE", "IN_PLAY", "1H", "2H", "HT", "PAUSED",
+  "FT",
+  "FINISHED",
+  "AET",
+  "PEN",
+  "LIVE",
+  "IN_PLAY",
+  "1H",
+  "2H",
+  "HT",
+  "PAUSED",
 ];
 
 const POINTS_EXACT = 4;
@@ -20,7 +28,10 @@ export default async function LeagueDetailPage({
 }) {
   const { id: leagueId } = await params;
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   if (!user) return null;
 
   const { data: league } = await supabase
@@ -42,7 +53,7 @@ export default async function LeagueDetailPage({
     .select("user_id")
     .eq("league_id", leagueId)
     .eq("user_id", user.id)
-    .single();
+    .maybeSingle();
 
   if (!membership) {
     return (
@@ -55,12 +66,31 @@ export default async function LeagueDetailPage({
     );
   }
 
+  const { data: competitionRows } = await supabase
+    .from("league_competitions")
+    .select("competition_code")
+    .eq("league_id", leagueId);
+
+  const competitionCodes = [
+    ...new Set(
+      (competitionRows ?? [])
+        .map((row) => row.competition_code)
+        .filter((code): code is string => Boolean(code))
+    ),
+  ];
+
+  // Fall back to the league's original competition for existing leagues.
+  if (competitionCodes.length === 0 && league.competition_code) {
+    competitionCodes.push(league.competition_code);
+  }
+
   const { data: members } = await supabase
     .from("league_members")
     .select("user_id, profiles(id, username)")
     .eq("league_id", leagueId);
 
-  const userIds = (members || []).map((m: any) => m.user_id);
+  const userIds = (members || []).map((member: any) => member.user_id);
+
   if (userIds.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center text-slate-400">
@@ -69,21 +99,21 @@ export default async function LeagueDetailPage({
     );
   }
 
-  // --- Fetch only THIS league's fixtures (scoped by competition_code) ---
-  let fixturesQuery = supabase
-    .from("fixtures")
-    .select("id, api_fixture_id, home_team_name, away_team_name, home_score, away_score, competition_code");
+  let fixtures: any[] = [];
 
-  if (league.competition_code) {
-    fixturesQuery = fixturesQuery.eq("competition_code", league.competition_code);
+  if (competitionCodes.length > 0) {
+    const { data: leagueFixtures } = await supabase
+      .from("fixtures")
+      .select(
+        "id, api_fixture_id, home_team_name, away_team_name, home_score, away_score, competition_code"
+      )
+      .in("competition_code", competitionCodes);
+
+    fixtures = leagueFixtures ?? [];
   }
 
-  const { data: leagueFixtures } = await fixturesQuery;
-  const fixtures = leagueFixtures ?? [];
+  const fixtureIds = [...new Set(fixtures.map((fixture: any) => fixture.id))];
 
-  const fixtureIds = [...new Set(fixtures.map((f: any) => f.id))];
-
-  // --- Predictions only for members AND this league's fixtures ---
   let predictions: any[] = [];
 
   if (fixtureIds.length > 0) {
@@ -98,96 +128,144 @@ export default async function LeagueDetailPage({
     predictions = leaguePredictions ?? [];
   }
 
-  const fixturesById = new Map(fixtures.map((f: any) => [f.id, f]));
+  const fixturesById = new Map(
+    fixtures.map((fixture: any) => [fixture.id, fixture])
+  );
 
-  const apiFixtureIds = [...new Set(fixtures.map((f: any) => f.api_fixture_id).filter(Boolean))];
+  const apiFixtureIds = [
+    ...new Set(
+      fixtures
+        .map((fixture: any) => fixture.api_fixture_id)
+        .filter(Boolean)
+    ),
+  ];
 
   let matches: any[] = [];
 
   if (apiFixtureIds.length > 0) {
     const { data: matchesData } = await supabase
       .from("matches")
-      .select("api_fixture_id, home_team, away_team, match_date, status, home_score, away_score")
+      .select(
+        "api_fixture_id, home_team, away_team, match_date, status, home_score, away_score"
+      )
       .in("api_fixture_id", apiFixtureIds);
 
     matches = matchesData ?? [];
   }
 
-  const matchesByApiId = new Map(matches.map((m: any) => [m.api_fixture_id, m]));
-
-  const leagueCompetitionCode =
-    league.competition_code ||
-    fixtures.map((f: any) => f.competition_code).find((c: any) => c) ||
-    null;
+  const matchesByApiId = new Map(
+    matches.map((match: any) => [match.api_fixture_id, match])
+  );
 
   const now = new Date();
 
-  const standings = (members || []).map((m: any) => {
-    const username = m.profiles?.username || "Unknown";
-    const userPreds = predictions.filter((p: any) => p.user_id === m.user_id);
+  const standings = (members || []).map((member: any) => {
+    const username = member.profiles?.username || "Unknown";
+    const userPredictions = predictions.filter(
+      (prediction: any) => prediction.user_id === member.user_id
+    );
 
     let totalPoints = 0;
     let exactScores = 0;
     let goalDiff = 0;
     let correctResult = 0;
 
-    const detailedPredictions = userPreds
-      .filter((p: any) => {
-        const fixture = fixturesById.get(p.match_id);
+    const detailedPredictions = userPredictions
+      .filter((prediction: any) => {
+        const fixture = fixturesById.get(prediction.match_id);
         if (!fixture) return false;
+
         const match = matchesByApiId.get(fixture.api_fixture_id);
-        const kickoff = match?.match_date ? new Date(match.match_date) : null;
+        const kickoff = match?.match_date
+          ? new Date(match.match_date)
+          : null;
         const statusUpper = (match?.status || "").toUpperCase();
-        const hasScores = fixture.home_score !== null && fixture.home_score !== undefined && fixture.away_score !== null && fixture.away_score !== undefined;
-        const started = (kickoff && kickoff <= now) || VISIBLE_STATUSES.includes(statusUpper) || hasScores;
-        return started;
+        const hasScores =
+          fixture.home_score !== null &&
+          fixture.home_score !== undefined &&
+          fixture.away_score !== null &&
+          fixture.away_score !== undefined;
+
+        return (
+          (kickoff !== null && kickoff <= now) ||
+          VISIBLE_STATUSES.includes(statusUpper) ||
+          hasScores
+        );
       })
-      .map((p: any) => {
-        const fixture = fixturesById.get(p.match_id);
+      .map((prediction: any) => {
+        const fixture = fixturesById.get(prediction.match_id);
         const match = matchesByApiId.get(fixture?.api_fixture_id);
 
-        const actH = fixture?.home_score ?? match?.home_score ?? p.actual_home_score;
-        const actA = fixture?.away_score ?? match?.away_score ?? p.actual_away_score;
-        const predH = p.home_score;
-        const predA = p.away_score;
+        const actualHome =
+          fixture?.home_score ??
+          match?.home_score ??
+          prediction.actual_home_score;
+        const actualAway =
+          fixture?.away_score ??
+          match?.away_score ??
+          prediction.actual_away_score;
+        const predictedHome = prediction.home_score;
+        const predictedAway = prediction.away_score;
 
         let outcome = "";
-        let predPoints = 0;
+        let predictionPoints = 0;
 
-        if (actH !== null && actH !== undefined && actA !== null && actA !== undefined) {
-          if (predH === actH && predA === actA) {
+        if (
+          actualHome !== null &&
+          actualHome !== undefined &&
+          actualAway !== null &&
+          actualAway !== undefined
+        ) {
+          if (
+            predictedHome === actualHome &&
+            predictedAway === actualAway
+          ) {
             exactScores++;
             outcome = "Exact Score";
-            predPoints = POINTS_EXACT;
-          } else if (actH !== actA && predH - predA === actH - actA) {
+            predictionPoints = POINTS_EXACT;
+          } else if (
+            actualHome !== actualAway &&
+            predictedHome - predictedAway === actualHome - actualAway
+          ) {
             goalDiff++;
             outcome = "Correct Goal Difference";
-            predPoints = POINTS_GOAL_DIFF;
+            predictionPoints = POINTS_GOAL_DIFF;
           } else {
-            const predResult = predH > predA ? "H" : predH < predA ? "A" : "D";
-            const actResult = actH > actA ? "H" : actH < actA ? "A" : "D";
-            if (predResult === actResult) {
+            const predictedResult =
+              predictedHome > predictedAway
+                ? "H"
+                : predictedHome < predictedAway
+                  ? "A"
+                  : "D";
+            const actualResult =
+              actualHome > actualAway
+                ? "H"
+                : actualHome < actualAway
+                  ? "A"
+                  : "D";
+
+            if (predictedResult === actualResult) {
               correctResult++;
               outcome = "Correct Result";
-              predPoints = POINTS_RESULT;
+              predictionPoints = POINTS_RESULT;
             } else {
               outcome = "Incorrect";
             }
           }
         }
 
-        totalPoints += predPoints;
+        totalPoints += predictionPoints;
 
         return {
-          matchId: p.match_id,
+          matchId: prediction.match_id,
           homeTeam: fixture?.home_team_name || match?.home_team || "?",
           awayTeam: fixture?.away_team_name || match?.away_team || "?",
           matchDate: match?.match_date,
-          predictedHome: predH,
-          predictedAway: predA,
-          actualHome: actH,
-          actualAway: actA,
-          points: predPoints,
+          predictedHome,
+          predictedAway,
+          actualHome,
+          actualAway,
+          points: predictionPoints,
           outcome,
         };
       })
@@ -197,7 +275,7 @@ export default async function LeagueDetailPage({
       );
 
     return {
-      userId: m.user_id,
+      userId: member.user_id,
       username,
       points: totalPoints,
       exactScores,
@@ -207,17 +285,15 @@ export default async function LeagueDetailPage({
     };
   });
 
-  // Tiebreaker order:
-  // 1. Points
-  // 2. Exact Scores
-  // 3. Goal Difference matches
-  // 4. Correct Results
-  // 5. Alphabetical fallback
   standings.sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points;
-    if (b.exactScores !== a.exactScores) return b.exactScores - a.exactScores;
+    if (b.exactScores !== a.exactScores) {
+      return b.exactScores - a.exactScores;
+    }
     if (b.goalDiff !== a.goalDiff) return b.goalDiff - a.goalDiff;
-    if (b.correctResult !== a.correctResult) return b.correctResult - a.correctResult;
+    if (b.correctResult !== a.correctResult) {
+      return b.correctResult - a.correctResult;
+    }
     return a.username.localeCompare(b.username);
   });
 
@@ -234,11 +310,7 @@ export default async function LeagueDetailPage({
           </p>
 
           <Link
-            href={
-              leagueCompetitionCode
-                ? `/predictions?competition_code=${leagueCompetitionCode}&league_name=${encodeURIComponent(league.name)}`
-                : `/predictions?league_name=${encodeURIComponent(league.name)}`
-            }
+            href={`/predictions?league_id=${league.id}&league_name=${encodeURIComponent(league.name)}`}
             className="inline-block mt-4 px-6 py-2.5 rounded-lg font-semibold text-sm bg-green-500 hover:bg-green-400 text-slate-900 transition-colors shadow-sm"
           >
             Make predictions

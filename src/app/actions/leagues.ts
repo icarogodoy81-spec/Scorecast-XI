@@ -3,48 +3,59 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
-type PlanKey = "free" | "gold" | "star";
+type PlanKey = "free" | "star";
 
-async function checkLeagueAccessLimit(
+async function getActivePlan(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string
-): Promise<string | null> {
-  const { data: entitlement, error: entitlementError } = await supabase
+): Promise<{ plan: PlanKey | null; error: string | null }> {
+  const { data: entitlement, error } = await supabase
     .from("user_entitlements")
     .select("plan_key, status, expires_at")
     .eq("user_id", userId)
     .maybeSingle();
 
-  if (entitlementError) {
-    return "Could not verify your membership plan. Please try again.";
+  if (error) {
+    return {
+      plan: null,
+      error: "Could not verify your membership plan. Please try again.",
+    };
   }
 
-  const entitlementIsActive =
+  const isActive =
     entitlement?.status === "active" &&
     (!entitlement.expires_at ||
       new Date(entitlement.expires_at).getTime() > Date.now());
 
-  const plan: PlanKey =
-    entitlementIsActive &&
-    (entitlement.plan_key === "gold" || entitlement.plan_key === "star")
-      ? entitlement.plan_key
-      : "free";
+  return {
+    plan:
+      isActive && entitlement?.plan_key === "star"
+        ? "star"
+        : "free",
+    error: null,
+  };
+}
 
-  if (plan !== "free") {
+async function checkLeagueAccessLimit(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  plan: PlanKey
+): Promise<string | null> {
+  if (plan === "star") {
     return null;
   }
 
-  const { count, error: membershipError } = await supabase
+  const { count, error } = await supabase
     .from("league_members")
     .select("league_id", { count: "exact", head: true })
     .eq("user_id", userId);
 
-  if (membershipError) {
+  if (error) {
     return "Could not verify your league access. Please try again.";
   }
 
   if ((count ?? 0) >= 1) {
-    return "The Free plan includes one league. To create or join more, explore Gold and Star on the Plans & Membership page.";
+    return "The Free plan includes one league. To create or join more, explore Star on the Plans & Membership page.";
   }
 
   return null;
@@ -55,6 +66,7 @@ export async function createLeague(formData: {
   description?: string;
   is_public?: boolean;
   competition_code?: string;
+  competition_codes?: string[];
 }) {
   const supabase = await createClient();
   const {
@@ -63,27 +75,74 @@ export async function createLeague(formData: {
 
   if (!user) return { error: "Not authenticated" };
 
-  const accessError = await checkLeagueAccessLimit(supabase, user.id);
+  const { plan, error: planError } = await getActivePlan(supabase, user.id);
+  if (planError || !plan) return { error: planError };
+
+  const accessError = await checkLeagueAccessLimit(
+    supabase,
+    user.id,
+    plan
+  );
   if (accessError) return { error: accessError };
+
+  const competitionCodes = [
+    ...new Set(
+      (formData.competition_codes?.length
+        ? formData.competition_codes
+        : formData.competition_code
+          ? [formData.competition_code]
+          : []
+      )
+        .map((code) => code.trim())
+        .filter(Boolean)
+    ),
+  ];
+
+  if (competitionCodes.length === 0) {
+    return { error: "Please select at least one tournament." };
+  }
+
+  if (plan !== "star" && competitionCodes.length > 1) {
+    return {
+      error: "Combining multiple tournaments in one league is available on Star.",
+    };
+  }
 
   const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
 
-  const { data: league, error } = await supabase
+  const { data: league, error: leagueError } = await supabase
     .from("leagues")
     .insert({
-      name: formData.name,
-      description: formData.description || null,
+      name: formData.name.trim(),
+      description: formData.description?.trim() || null,
       cover_url: null,
       owner_id: user.id,
       invite_code: inviteCode,
       is_public: formData.is_public ?? false,
       max_members: 20,
-      competition_code: formData.competition_code || null,
+      competition_code: competitionCodes[0],
     })
     .select()
     .single();
 
-  if (error) return { error: error.message };
+  if (leagueError || !league) {
+    return { error: leagueError?.message ?? "Could not create the league." };
+  }
+
+  const { error: competitionsError } = await supabase
+    .from("league_competitions")
+    .insert(
+      competitionCodes.map((competitionCode) => ({
+        league_id: league.id,
+        competition_code: competitionCode,
+        added_by: user.id,
+      }))
+    );
+
+  if (competitionsError) {
+    await supabase.from("leagues").delete().eq("id", league.id);
+    return { error: competitionsError.message };
+  }
 
   const { error: memberError } = await supabase.from("league_members").insert({
     user_id: user.id,
@@ -110,7 +169,7 @@ export async function joinLeague(inviteCode: string) {
   const { data: league, error: leagueError } = await supabase
     .from("leagues")
     .select("*")
-    .eq("invite_code", inviteCode.toUpperCase())
+    .eq("invite_code", inviteCode.trim().toUpperCase())
     .single();
 
   if (leagueError || !league) return { error: "Invalid invite code" };
@@ -125,7 +184,14 @@ export async function joinLeague(inviteCode: string) {
   if (existingError) return { error: existingError.message };
   if (existing) return { error: "Already a member" };
 
-  const accessError = await checkLeagueAccessLimit(supabase, user.id);
+  const { plan, error: planError } = await getActivePlan(supabase, user.id);
+  if (planError || !plan) return { error: planError };
+
+  const accessError = await checkLeagueAccessLimit(
+    supabase,
+    user.id,
+    plan
+  );
   if (accessError) return { error: accessError };
 
   const { count, error: countError } = await supabase
@@ -139,12 +205,12 @@ export async function joinLeague(inviteCode: string) {
     return { error: "League is full" };
   }
 
-  const { error } = await supabase.from("league_members").insert({
+  const { error: memberError } = await supabase.from("league_members").insert({
     user_id: user.id,
     league_id: league.id,
   });
 
-  if (error) return { error: error.message };
+  if (memberError) return { error: memberError.message };
 
   revalidatePath("/leagues");
   return { data: league, error: null };
