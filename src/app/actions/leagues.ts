@@ -1,21 +1,48 @@
 "use server";
 
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
 type PlanKey = "free" | "star";
 
 async function getActivePlan(
-  supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string
 ): Promise<{ plan: PlanKey | null; error: string | null }> {
-  const { data: entitlement, error } = await supabase
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    console.error("getActivePlan: Supabase server environment variables are missing.");
+
+    return {
+      plan: null,
+      error: "Could not verify your membership plan. Please try again.",
+    };
+  }
+
+  const supabaseAdmin = createSupabaseClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+
+  const { data: entitlement, error } = await supabaseAdmin
     .from("user_entitlements")
     .select("plan_key, status, expires_at")
     .eq("user_id", userId)
     .maybeSingle();
 
   if (error) {
+    console.error("getActivePlan: failed to read user_entitlements", {
+      userId,
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    });
+
     return {
       plan: null,
       error: "Could not verify your membership plan. Please try again.",
@@ -28,10 +55,7 @@ async function getActivePlan(
       new Date(entitlement.expires_at).getTime() > Date.now());
 
   return {
-    plan:
-      isActive && entitlement?.plan_key === "star"
-        ? "star"
-        : "free",
+    plan: isActive && entitlement?.plan_key === "star" ? "star" : "free",
     error: null,
   };
 }
@@ -75,14 +99,12 @@ export async function createLeague(formData: {
 
   if (!user) return { error: "Not authenticated" };
 
-  const { plan, error: planError } = await getActivePlan(supabase, user.id);
-  if (planError || !plan) return { error: planError };
+  const { plan, error: planError } = await getActivePlan(user.id);
+  if (planError || !plan) {
+    return { error: planError ?? "Could not verify your membership plan. Please try again." };
+  }
 
-  const accessError = await checkLeagueAccessLimit(
-    supabase,
-    user.id,
-    plan
-  );
+  const accessError = await checkLeagueAccessLimit(supabase, user.id, plan);
   if (accessError) return { error: accessError };
 
   const competitionCodes = [
@@ -184,14 +206,12 @@ export async function joinLeague(inviteCode: string) {
   if (existingError) return { error: existingError.message };
   if (existing) return { error: "Already a member" };
 
-  const { plan, error: planError } = await getActivePlan(supabase, user.id);
-  if (planError || !plan) return { error: planError };
+  const { plan, error: planError } = await getActivePlan(user.id);
+  if (planError || !plan) {
+    return { error: planError ?? "Could not verify your membership plan. Please try again." };
+  }
 
-  const accessError = await checkLeagueAccessLimit(
-    supabase,
-    user.id,
-    plan
-  );
+  const accessError = await checkLeagueAccessLimit(supabase, user.id, plan);
   if (accessError) return { error: accessError };
 
   const { count, error: countError } = await supabase
