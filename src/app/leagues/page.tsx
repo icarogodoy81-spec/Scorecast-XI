@@ -38,6 +38,7 @@ export default function LeaguesPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [newLeagueName, setNewLeagueName] = useState("");
   const [newLeagueCompetition, setNewLeagueCompetition] = useState("BSA");
+  const [selectedCompetitions, setSelectedCompetitions] = useState<string[]>([]);
   const [joinCode, setJoinCode] = useState("");
   const [message, setMessage] = useState("");
 
@@ -89,6 +90,20 @@ export default function LeaguesPage() {
     loadLeagues();
   }, [supabase]);
 
+  function handleAddCompetition() {
+    if (!newLeagueCompetition || selectedCompetitions.includes(newLeagueCompetition)) {
+      return;
+    }
+
+    setSelectedCompetitions((current) => [...current, newLeagueCompetition]);
+  }
+
+  function handleRemoveCompetition(code: string) {
+    setSelectedCompetitions((current) =>
+      current.filter((item) => item !== code)
+    );
+  }
+
   async function handleCreate() {
     const name = newLeagueName.trim();
 
@@ -98,9 +113,14 @@ export default function LeaguesPage() {
     setIsSubmitting(true);
 
     try {
+      if (selectedCompetitions.length === 0) {
+        setMessage("Add at least one tournament before creating the league.");
+        return;
+      }
+
       const result = await createLeague({
         name,
-        competition_code: newLeagueCompetition,
+        competition_codes: selectedCompetitions,
       });
 
       if (result.error) {
@@ -215,13 +235,45 @@ export default function LeaguesPage() {
                 </select>
 
                 <button
+                  type="button"
+                  onClick={handleAddCompetition}
+                  className="rounded-lg bg-slate-700 px-4 py-2.5 font-medium text-white transition-colors hover:bg-slate-600"
+                >
+                  Add tournament
+                </button>
+
+                <button
                   onClick={handleCreate}
-                  disabled={isSubmitting || !newLeagueName.trim()}
+                  disabled={
+                    isSubmitting ||
+                    !newLeagueName.trim() ||
+                    selectedCompetitions.length === 0
+                  }
                   className="rounded-lg bg-blue-600 px-6 py-2.5 font-semibold text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {isSubmitting ? "Please wait..." : "Create"}
                 </button>
               </div>
+
+              {selectedCompetitions.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {selectedCompetitions.map((code) => (
+                    <span
+                      key={code}
+                      className="flex items-center gap-2 rounded-full bg-blue-600/20 px-3 py-1 text-sm text-blue-300"
+                    >
+                      {COMPETITIONS.find((c) => c.code === code)?.name ?? code}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveCompetition(code)}
+                        className="text-blue-400 hover:text-white"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
             </section>
 
             <section className="rounded-2xl border border-white/10 bg-slate-900/40 p-6 shadow-xl backdrop-blur-md">
