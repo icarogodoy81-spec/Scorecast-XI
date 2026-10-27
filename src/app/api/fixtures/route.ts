@@ -9,9 +9,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Missing Supabase server env variables' }, { status: 500 });
   }
 
-  const { searchParams } = new URL(req.url);
-  const leagueId = searchParams.get('league_id');
+   const { searchParams } = new URL(req.url);
+  const competitionCodesParam = searchParams.get('competition_codes');
   const competitionCode = searchParams.get('competition_code');
+  const leagueId = searchParams.get('league_id');
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -24,11 +25,25 @@ export async function GET(req: NextRequest) {
     )
     .order('date', { ascending: true });
 
-  if (competitionCode) {
+  if (competitionCodesParam) {
+    const codes = competitionCodesParam
+      .split(',')
+      .map((code) => code.trim().toUpperCase())
+      .filter(Boolean);
+
+    if (codes.length === 0) {
+      return NextResponse.json({ matches: [] });
+    }
+
+    query = query.in('competition_code', codes);
+  } else if (competitionCode) {
     query = query.eq('competition_code', competitionCode.toUpperCase());
   } else if (leagueId) {
     query = query.eq('league_id', Number(leagueId));
+  } else {
+    return NextResponse.json({ matches: [] });
   }
+
 
   const { data, error } = await query;
 

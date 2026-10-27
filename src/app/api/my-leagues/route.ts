@@ -23,50 +23,61 @@ export async function GET() {
     );
   }
 
-  const leagueIds = (memberships ?? []).map((membership) => membership.league_id);
+  const leagueIds = (memberships ?? []).map((m) => m.league_id);
 
   if (leagueIds.length === 0) {
-    return NextResponse.json({ competitionCodes: [] });
+    return NextResponse.json({ leagues: [], competitionCodes: [] });
   }
 
-  const [competitionsResult, leaguesResult] = await Promise.all([
-    supabase
-      .from("league_competitions")
-      .select("competition_code")
-      .in("league_id", leagueIds),
-    supabase
-      .from("leagues")
-      .select("competition_code")
-      .in("id", leagueIds),
-  ]);
+  const { data: leagues, error: leaguesError } = await supabase
+    .from("leagues")
+    .select("id, name, competition_code")
+    .in("id", leagueIds);
 
-  if (competitionsResult.error) {
-    return NextResponse.json(
-      { error: competitionsResult.error.message },
-      { status: 500 }
-    );
+  if (leaguesError) {
+    return NextResponse.json({ error: leaguesError.message }, { status: 500 });
   }
 
-  if (leaguesResult.error) {
-    return NextResponse.json(
-      { error: leaguesResult.error.message },
-      { status: 500 }
-    );
+  const { data: competitionRows, error: competitionsError } = await supabase
+    .from("league_competitions")
+    .select("league_id, competition_code")
+    .in("league_id", leagueIds);
+
+  if (competitionsError) {
+    return NextResponse.json({ error: competitionsError.message }, { status: 500 });
   }
+
+  const competitionsByLeague = new Map<number, string[]>();
+
+  for (const row of competitionRows ?? []) {
+    const list = competitionsByLeague.get(row.league_id) ?? [];
+    list.push(row.competition_code);
+    competitionsByLeague.set(row.league_id, list);
+  }
+
+  const leagueObjects = (leagues ?? []).map((league) => {
+    const codes = [
+      ...(competitionsByLeague.get(league.id) ?? []),
+      ...(league.competition_code ? [league.competition_code] : []),
+    ];
+
+    const competitionCodes = [
+      ...new Set(
+        codes
+          .filter(
+            (code): code is string =>
+              typeof code === "string" && code.trim().length > 0
+          )
+          .map((code) => code.trim().toUpperCase())
+      ),
+    ];
+
+    return { id: league.id, name: league.name, competitionCodes };
+  });
 
   const competitionCodes = [
-    ...new Set(
-      [
-        ...(competitionsResult.data ?? []).map((row) => row.competition_code),
-        ...(leaguesResult.data ?? []).map((league) => league.competition_code),
-      ]
-        .filter(
-          (code): code is string =>
-            typeof code === "string" && code.trim().length > 0
-        )
-        .map((code) => code.trim().toUpperCase())
-    ),
+    ...new Set(leagueObjects.flatMap((league) => league.competitionCodes)),
   ];
 
-  return NextResponse.json({ competitionCodes });
+  return NextResponse.json({ leagues: leagueObjects, competitionCodes });
 }

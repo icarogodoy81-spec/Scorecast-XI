@@ -3,7 +3,6 @@
 
 import { CSSProperties, Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { COMPETITIONS } from '@/lib/competitions';
 
 type Fixture = any;
 
@@ -12,6 +11,12 @@ type PredictionState = {
     home: string;
     away: string;
   };
+};
+
+type LeagueOption = {
+  id: string | number;
+  name: string;
+  competitionCodes: string[];
 };
 
 type TeamMeta = {
@@ -324,7 +329,7 @@ export default function PredictionsPage() {
 
 function PredictionsContent() {
   const searchParams = useSearchParams();
-  const urlCompetitionCode = searchParams.get('competition_code');
+  const urlLeagueId = searchParams.get('league_id');
   const urlLeagueName = searchParams.get('league_name');
 
   const [fixtures, setFixtures] = useState<Fixture[]>([]);
@@ -334,73 +339,63 @@ function PredictionsContent() {
   const [savedPredictions, setSavedPredictions] = useState<Record<string, boolean>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<Record<string, string>>({});
-  const [joinedCodes, setJoinedCodes] = useState<string[] | null>(null);
-  const [selectedCompetitionCode, setSelectedCompetitionCode] = useState<string>(() => {
-    if (typeof window === 'undefined') return 'BSA';
-    return window.localStorage.getItem('selectedCompetitionCode') || 'BSA';
-  });
+  const [leagues, setLeagues] = useState<LeagueOption[] | null>(null);
+  const [selectedLeagueId, setSelectedLeagueId] = useState<string | null>(urlLeagueId);
 
   useEffect(() => {
-    if (urlCompetitionCode) {
-      const code = urlCompetitionCode.toUpperCase();
-      setSelectedCompetitionCode(code);
-      window.localStorage.setItem('selectedCompetitionCode', code);
-    }
-  }, [urlCompetitionCode]);
-
-  useEffect(() => {
-    async function loadMyLeagues() {
+    async function loadLeagues() {
       try {
         const res = await fetch('/api/my-leagues', { cache: 'no-store' });
         if (!res.ok) {
-          setJoinedCodes([]);
+          setLeagues([]);
           return;
         }
         const data = await res.json();
-        setJoinedCodes(
-          (data.competitionCodes || []).map((code: string) => code.toUpperCase())
-        );
+        setLeagues(data.leagues ?? []);
       } catch {
-        setJoinedCodes([]);
+        setLeagues([]);
       }
     }
-    loadMyLeagues();
+    loadLeagues();
   }, []);
 
+  const activeLeague = useMemo(() => {
+    if (!leagues) return null;
+    return (
+      leagues.find((league) => String(league.id) === String(selectedLeagueId)) ??
+      leagues[0] ??
+      null
+    );
+  }, [leagues, selectedLeagueId]);
+
+  const competitionCodes = activeLeague?.competitionCodes ?? [];
+  const competitionCodesKey = competitionCodes.join(',');
+
+  const isReady = leagues !== null;
+
   useEffect(() => {
-    if (joinedCodes === null || joinedCodes.length === 0) return;
-    if (urlCompetitionCode) return;
-    if (!joinedCodes.includes(selectedCompetitionCode)) {
-      const code = joinedCodes[0];
-      setSelectedCompetitionCode(code);
-      window.localStorage.setItem('selectedCompetitionCode', code);
-    }
-  }, [joinedCodes, selectedCompetitionCode, urlCompetitionCode]);
-
-  const availableCompetitions = useMemo(() => {
-    const codes = joinedCodes ?? [];
-    return codes.map((code) => {
-      const match = COMPETITIONS.find((c) => c.code.toUpperCase() === code);
-      return { code, name: match?.name || code };
-    });
-  }, [joinedCodes]);
-
-  const effectiveCode = urlCompetitionCode
-    ? urlCompetitionCode.toUpperCase()
-    : selectedCompetitionCode;
-
-  const isReady = joinedCodes !== null;
+    if (leagues === null || leagues.length === 0) return;
+    setSelectedLeagueId((current) =>
+      current && leagues.some((league) => String(league.id) === current)
+        ? current
+        : String(leagues[0].id)
+    );
+  }, [leagues]);
 
   useEffect(() => {
     if (!isReady) return;
-    if (!effectiveCode) return;
-    if (!joinedCodes.includes(effectiveCode)) return;
+
+    if (competitionCodes.length === 0) {
+      setFixtures([]);
+      setLoading(false);
+      return;
+    }
 
     async function loadData() {
       setLoading(true);
       setError('');
       try {
-        const fixturesUrl = `/api/fixtures?competition_code=${effectiveCode.toUpperCase()}`;
+        const fixturesUrl = `/api/fixtures?competition_codes=${competitionCodesKey}`;
 
         const [fixturesRes, predictionsRes] = await Promise.all([
           fetch(fixturesUrl, { cache: 'no-store' }),
@@ -413,8 +408,8 @@ function PredictionsContent() {
 
         const fixturesData = await fixturesRes.json();
         const items =
-          fixturesData.fixtures ||
           fixturesData.matches ||
+          fixturesData.fixtures ||
           fixturesData.data ||
           fixturesData.response ||
           fixturesData ||
@@ -457,7 +452,8 @@ function PredictionsContent() {
     }
 
     loadData();
-  }, [effectiveCode, isReady, joinedCodes]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isReady, competitionCodesKey]);
 
   const groupedFixtures = useMemo(() => {
     return fixtures.reduce<Record<string, Fixture[]>>((groups, fixture) => {
@@ -530,7 +526,7 @@ function PredictionsContent() {
     }
   }
 
-  if (isReady && availableCompetitions.length === 0 && !urlCompetitionCode) {
+  if (isReady && leagues.length === 0) {
     return (
       <main className="min-h-screen text-slate-100 p-6 flex flex-col items-center justify-center">
         <div className="text-center max-w-md bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-2xl p-8 shadow-xl">
@@ -568,30 +564,24 @@ function PredictionsContent() {
               League
             </label>
 
-            {urlCompetitionCode ? (
+            {urlLeagueId ? (
               <div className="w-full bg-slate-800/50 border border-white/10 text-white rounded-lg px-4 py-2.5 text-sm font-bold">
-                {urlLeagueName ||
-                  COMPETITIONS.find((c) => c.code.toUpperCase() === urlCompetitionCode.toUpperCase())?.name ||
-                  urlCompetitionCode}
+                {urlLeagueName || activeLeague?.name || `League ${urlLeagueId}`}
               </div>
-            ) : joinedCodes === null ? (
+            ) : leagues === null ? (
               <div className="w-full bg-slate-800/50 border border-white/10 text-slate-400 rounded-lg px-4 py-2.5 text-sm">
                 Loading…
               </div>
-            ) : (
+            ) : leagues.length === 0 ? null : (
               <select
                 id="league-select"
-                value={selectedCompetitionCode}
-                onChange={(e) => {
-                  const code = e.target.value;
-                  setSelectedCompetitionCode(code);
-                  window.localStorage.setItem('selectedCompetitionCode', code);
-                }}
+                value={selectedLeagueId ?? ''}
+                onChange={(e) => setSelectedLeagueId(e.target.value)}
                 className="w-full bg-slate-800/50 border border-white/10 text-white rounded-lg px-4 py-2.5 text-sm font-semibold cursor-pointer outline-none focus:border-blue-500"
               >
-                {availableCompetitions.map(({ code, name }) => (
-                  <option key={code} value={code} className="bg-slate-800">
-                    {name}
+                {leagues.map((league) => (
+                  <option key={league.id} value={String(league.id)} className="bg-slate-800">
+                    {league.name}
                   </option>
                 ))}
               </select>
